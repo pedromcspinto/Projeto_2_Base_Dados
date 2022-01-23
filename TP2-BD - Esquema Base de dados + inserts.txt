@@ -1,0 +1,1023 @@
+/*
+Trabalho Prático 2 - Base de Dados Engenharia Informática ISMAT, 2021/22
+Trabalho realizado por:
+                        Leandro Fonseca, a22001805
+                        Pedro Pinto, a22000888
+*/
+
+create table Conta(
+	id serial primary key,
+	email varchar(50) unique not null,
+	password text not null,
+	numeroTelemovel varchar(20) unique,
+	dataAdesao date not null
+);
+
+create table Perfil(
+	idConta serial,
+	id serial primary key,
+	nome varchar(50) not null,
+	idioma varchar(30) not null,	
+	password text not null,
+	restricaoIdade varchar(5),
+	tipo varchar(10) not null check(tipo in('Normal','Criança')),
+	constraint fk__conta
+	foreign key (idConta)
+	references Conta(id)
+);
+
+create table Media(
+	id serial primary key,
+	titulo varchar(50) not null,
+	anoLancamento varchar(4) not null,
+	classificacao real not null,
+	restricaoIdade varchar(5),
+	descricao text,
+	isDownloadable boolean not null
+);
+
+create table Visualiza(
+	idConta serial,
+	idPerfil serial,
+	idMedia serial,
+	data date not null,
+	constraint fk__conta
+	foreign key(idConta)
+	references Conta(id),
+	constraint fk__perfil
+	foreign key(idPerfil)
+	references Perfil(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);	
+
+create table Genero(
+	id serial primary key,
+	tipo varchar(50) unique not null
+);
+
+create table PossuiGenero(
+	idGenero serial,
+	idMedia serial,
+	constraint fk__genero
+	foreign key(idGenero)
+	references Genero(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Realizador(
+	id serial primary key,
+	nome varchar(50) not null,
+    apelido varchar(50) not null
+);
+
+create table Realiza(
+	idRealizador serial,
+	idMedia serial,
+	constraint fk__realizador
+	foreign key(idRealizador)
+	references Realizador(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Ator(
+	id serial primary key,
+    nome varchar(50) not null,
+    apelido varchar(50) not null
+);
+
+create table Representa(
+	idAtor serial,
+	idMedia serial,
+	constraint fk__ator
+	foreign key(idAtor)
+	references Ator(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Trailer(
+	titulo varchar(50) not null,
+	id serial primary key,
+	idMedia serial,
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Serie(
+	idMedia serial,
+	numTemporadas smallint not null check(numTemporadas >= 1),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Filme(
+	idMedia serial,
+	duracao smallint not null,
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Temporada(
+	id serial primary key,
+	idMedia serial,
+	numEpisodios smallint not null check(numEpisodios >= 1),
+	anoLancamento varchar(4) not null,
+	descricao text,
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table Episodio(
+	id serial primary key,
+	idMedia serial,
+	idTemporada serial,
+	duracao smallint not null,
+	titulo varchar(50) not null,
+	descricao text,
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id),
+	constraint fk__temporada
+	foreign key(idTemporada)
+	references Temporada(id)
+);
+
+create table Lista(
+	idPerfil serial,
+	constraint fk__perfil
+	foreign key(idPerfil)
+	references Perfil(id)
+);
+
+create table ListaDownload(
+	idPerfil serial,
+	constraint fk__perfil
+	foreign key(idPerfil)
+	references Perfil(id)
+);
+
+create table ListaContem(
+	idPerfil serial,
+	idMedia serial,
+	constraint fk__perfil
+	foreign key(idPerfil)
+	references Perfil(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+create table ListaDownloadContem(
+	idPerfil serial,
+	idMedia serial,
+	constraint fk__perfil
+	foreign key(idPerfil)
+	references Perfil(id),
+	constraint fk__media
+	foreign key(idMedia)
+	references Media(id)
+);
+
+/*
+-----------------------------------------------------------------------------------------
+                                    Store Procedure
+-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE PROCEDURE sp_insert_media(character varying, character varying, numeric, character varying,
+                                 character varying, BOOLEAN) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.media(titulo, anolancamento, classificacao, restricaoidade, descricao, isdownloadable)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$$;
+
+/*-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE PROCEDURE sp_insert_conta(character varying, text, character varying, date) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.conta(email, password, numerotelemovel, dataadesao)
+    values($1,$2,$3,$4);
+end;
+$$;
+
+/*-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE PROCEDURE sp_insert_perfil(integer, character varying, character varying, character varying, character varying, character varying) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.perfil(idconta, nome, idioma, password, restricaoidade, tipo)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$$;
+
+/*
+-----------------------------------------------------------------------------------------
+                                        Triggers
+-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE FUNCTION public."Perfil_num_limit"()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    NOT LEAKPROOF
+AS $BODY$
+	DECLARE count_perfil INTEGER;
+	BEGIN
+		select count(id) into count_perfil
+		from perfil
+		where idconta=new.idconta;
+		if (count_perfil >= 5) then
+			raise notice 'Não pode sdicionar mais perfis';
+		else return new;
+		end if;
+		return null;
+	END;
+$BODY$;
+ALTER FUNCTION public."Perfil_num_limit"()
+    OWNER TO postgres;
+
+CREATE TRIGGER limit_number_perfil
+    BEFORE INSERT
+    ON public.perfil
+    FOR EACH ROW
+    EXECUTE FUNCTION public."Perfil_num_limit"();
+
+/*-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE FUNCTION public.restricao_idade_perfil()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    NOT LEAKPROOF
+AS $BODY$
+	BEGIN
+		if (new.tipo='Criança' and new.restricaoidade is null) then
+			raise notice 'Não pode adicionar um perfil de Criança sem uma restrição de idade';
+		else 
+			if (new.tipo='Normal' and new.restricaoidade is not null) then
+				raise notice 'Não pode adicionar um perfil Normal com uma restrição de idade';
+			else
+			return new;
+			end if;
+		end if;
+		return null;
+	END;
+$BODY$;
+ALTER FUNCTION public.restricao_idade_perfil()
+    OWNER TO postgres;
+	
+	
+CREATE TRIGGER "restricao_idade"
+    BEFORE INSERT
+    ON public.perfil
+    FOR EACH ROW
+    EXECUTE FUNCTION public.restricao_idade_perfil();
+
+/*-----------------------------------------------------------------------------------------*/
+
+CREATE OR REPLACE FUNCTION public.media_is_downloadable()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+ 	NOT LEAKPROOF
+AS $BODY$
+	Declare id_media Integer;
+
+	BEGIN
+		if (new.idmedia in (select id from media where isdownloadable = true)) then
+			return new;
+		else
+			raise notice 'A media não pode ser transferido';
+		end if;
+		return null;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.media_is_downloadable()
+    OWNER TO postgres;
+	
+CREATE TRIGGER is_downloadable
+    BEFORE INSERT
+    ON public.listadownloadcontem
+    FOR EACH ROW
+    EXECUTE FUNCTION public.media_is_downloadable();
+
+/*-----------------------------------------------------------------------------------------
+                                            Inserts
+-----------------------------------------------------------------------------------------*/
+
+insert into conta values(default,'teste@teste.ismat.pt','passwordsegura','910000000','2022-01-01');
+insert into conta values(default,'joao@teste.ismat.pt','passwordsegura','910000001','2022-01-02');
+insert into conta values(default,'tiago@teste.ismat.pt','passwordsegura','910000002','2022-01-03');
+insert into conta values(default,'alberto@teste.ismat.pt','passwordsegura','910000003','2022-01-03');
+insert into conta values(default,'maria@teste.ismat.pt','passwordsegura','910000004','2022-01-03');
+insert into conta values(default,'ines@teste.ismat.pt','passwordsegura','910000005','2022-02-01');
+insert into conta values(default,'pedro@teste.ismat.pt','passwordsegura','910000006','2022-02-04');
+insert into conta values(default,'alexandre@teste.ismat.pt','passwordsegura','910000007','2022-02-01');
+insert into conta values(default,'mariana@teste.ismat.pt','passwordsegura','910000008','2022-03-12');
+insert into conta values(default,'joana@teste.ismat.pt','passwordsegura','910000009','2022-03-28');
+insert into conta values(default,'ricardo@teste.ismat.pt','passwordsegura','910000010','2022-05-08');
+insert into conta values(default,'diogo@teste.ismat.pt','passwordsegura','910000011','2022-05-17');
+insert into conta values(default,'margarida@teste.ismat.pt','passwordsegura','910000012','2022-06-05');
+insert into conta values(default,'ana@teste.ismat.pt','passwordsegura','910000013','2022-06-05');
+insert into conta values(default,'ze@teste.ismat.pt','passwordsegura','910000014','2022-06-05');
+insert into conta values(default,'marcio@teste.ismat.pt','passwordsegura','910000015','2022-10-10');
+insert into conta values(default,'silvia@teste.ismat.pt','passwordsegura','910000016','2022-11-11');
+insert into conta values(default,'leandro@teste.ismat.pt','passwordsegura','910000017','2022-11-21');
+insert into conta values(default,'fatima@teste.ismat.pt','passwordsegura','910000018','2022-12-07');
+insert into conta values(default,'manuel@teste.ismat.pt','passwordsegura','910000019','2022-12-18');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into perfil values(1,default,'Teste','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(1,default,'Teste2','Spanish','passwordsegura','+8','Criança');
+insert into perfil values(1,default,'Teste3','Russian','passwordsegura',null,'Normal');
+insert into perfil values(1,default,'Teste4','English','passwordsegura','+18','Criança');
+insert into perfil values(2,default,'João','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(3,default,'Tiago - Filho','French','passwordsegura','+12','Criança');
+insert into perfil values(3,default,'Tiago - Pai','English','passwordsegura',null,'Normal');
+insert into perfil values(4,default,'Alberto','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(4,default,'Mulher - Alberto','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(4,default,'Filho - Alberto','Portuguese','passwordsegura','+12','Criança');
+insert into perfil values(4,default,'Filha - Alberto','Portuguese','passwordsegura','+8','Criança');
+insert into perfil values(4,default,'Pai - Alberto','English','passwordsegura',null,'Normal');
+insert into perfil values(5,default,'Maria','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(5,default,'Mulher - Maria','Chinese','passwordsegura',null,'Normal');
+insert into perfil values(5,default,'Filho - Maria','English','passwordsegura','+8','Criança');
+insert into perfil values(6,default,'Inês','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(7,default,'Pedro','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(8,default,'Alexandre','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(8,default,'Namorada - Alexandre','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(9,default,'Mariana','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(9,default,'Cão - Alexandre','Portuguese','passwordsegura','+8','Criança');
+insert into perfil values(9,default,'Gato - Alexandre','Portuguese','passwordsegura','+4','Criança');
+insert into perfil values(10,default,'Joana','Portuguese','passwordsegura','+16','Criança');
+insert into perfil values(10,default,'Primo Alemão - Joana','German','passwordsegura','+14','Criança');
+insert into perfil values(10,default,'Primo Ucraniano - Joana','Ukranish','passwordsegura','+10','Criança');
+insert into perfil values(10,default,'Joana Alternativa','English','passwordsegura',null,'Normal');
+insert into perfil values(11,default,'Ricardo','French','passwordsegura',null,'Normal');
+insert into perfil values(12,default,'Diogo','Dutch','passwordsegura',null,'Normal');
+insert into perfil values(12,default,'Irmão - Diogo','Dutch','passwordsegura',null,'Normal');
+insert into perfil values(13,default,'Margarida','Spanish','passwordsegura','+16','Criança');
+insert into perfil values(13,default,'Mãe - Margarida','Spanish','passwordsegura',null,'Normal');
+insert into perfil values(13,default,'Avó - Margarida','French','passwordsegura',null,'Normal');
+insert into perfil values(14,default,'Ana','Russian','passwordsegura',null,'Normal');
+insert into perfil values(14,default,'Ana Katroska','Russian','passwordsegura',null,'Normal');
+insert into perfil values(15,default,'Ze','German','passwordsegura',null,'Normal');
+insert into perfil values(15,default,'Mulher - Ze','Hindi','passwordsegura',null,'Normal');
+insert into perfil values(15,default,'Filho - Ze','English','passwordsegura','+3','Criança');
+insert into perfil values(15,default,'Filho - Ze','English','passwordsegura','+6','Criança');
+insert into perfil values(16,default,'Marcio','Portuguese','passwordsegura','+8','Criança');
+insert into perfil values(17,default,'Silvia','French','passwordsegura','+18','Criança');
+insert into perfil values(18,default,'Leandro','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(18,default,'Irmão - Leandro','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(19,default,'Fatima','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(19,default,'Marido - Fatima','Chinese','passwordsegura',null,'Normal');
+insert into perfil values(19,default,'Filho - Fatima','English','passwordsegura','+8','Criança');
+insert into perfil values(20,default,'Manuel','Portuguese','passwordsegura',null,'Normal');
+insert into perfil values(20,default,'Amigo - Manuel','Portuguese','passwordsegura',null,'Normal');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into media values(default,'Spiderman','2022',6.3,'+12','Spider-Man: No Way Home is a 2021 American superhero film based on the Marvel Comics character Spider-Man.',false);
+insert into media values(default,'Matrix','2021',0.1,'+16','Filme complicado de entender',true);
+insert into media values(default,'Flash','2014',8.2,'+8','Serie engraçada',true);
+insert into media values(default,'Barbie Movie','2008',4.4,'+4','Filme infantil',false);
+insert into media values(default,'Game of thrones','2017',9.7,'+18','Serie espetacular',true);
+insert into media values(default,'GhostBusters','1987',8.1,'+12','Filme espetacular',false);
+insert into media values(default,'La Casa de Papel','2016',8.9,'+18','Serie engraçada',true);
+insert into media values(default,'Lego Movie','2008',6.7,'+6','Filme infantil',true);
+insert into media values(default,'The 100','2013',5.7,'+18','Serie ok',false);
+insert into media values(default,'Breaking Bad','2007',7.7,'+18','Serie boas',false);
+insert into media values(default,'Space Jam','1988',7.1,'+8','Filme espetacular',false);
+insert into media values(default,'Matrix 1','2001',9.1,'+16','Filme complicado de entender, mas bom',true);
+insert into media values(default,'Prison Break','2006',4.3,'+12','Serie engraçada',true);
+insert into media values(default,'Mickey Mouse','2008',6.4,null,'Filme infantil',true);
+insert into media values(default,'Black Mirror','2017',9.7,'+18','Serie espetacular',false);
+insert into media values(default,'Super Mario','1998',3.1,'+12','Filme Horrivel',false);
+insert into media values(default,'F.R.I.E.N.D.S.','2003',7.9,'+12','Serie engraçada',true);
+insert into media values(default,'Harry Potter Pedra Filosofal','2001',6.7,'+8','Filme infantil',true);
+insert into media values(default,'Gossip Girl','2018',4.3,'+16','Serie ok',false);
+insert into media values(default,'You','2000',6.2,null,'Serie boas',false);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into filme values(1,143);
+insert into filme values(2,91);
+insert into filme values(4,210);
+insert into filme values(6,124);
+insert into filme values(8,87);
+insert into filme values(11,118);
+insert into filme values(12,135);
+insert into filme values(14,76);
+insert into filme values(16,68);
+insert into filme values(18,102);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into serie values(15,1);
+insert into serie values(19,2);
+insert into serie values(5,2);
+insert into serie values(10,1);
+insert into serie values(13,1);
+insert into serie values(7,2);
+insert into serie values(20,1);
+insert into serie values(9,2);
+insert into serie values(3,1);
+insert into serie values(17,1);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into temporada values(default,15,3,'2017','Descricao Serie');
+insert into temporada values(default,19,2,'2018','Descricao Serie');
+insert into temporada values(default,19,1,'2019','Descricao Serie');
+insert into temporada values(default,5,2,'2017','Descricao Serie');
+insert into temporada values(default,5,2,'2020','Descricao Serie');
+insert into temporada values(default,10,1,'2007','Descricao Serie');
+insert into temporada values(default,13,3,'2006','Descricao Serie');
+insert into temporada values(default,7,2,'2016','Descricao Serie');
+insert into temporada values(default,7,2,'2021','Descricao Serie');
+insert into temporada values(default,20,2,'2000','Descricao Serie');
+insert into temporada values(default,9,2,'2013','Descricao Serie');
+insert into temporada values(default,9,1,'2015','Descricao Serie');
+insert into temporada values(default,3,2,'2014','Descricao Serie');
+insert into temporada values(default,17,2,'2003','Descricao Serie');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into episodio values(default,15,1,63,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,15,1,40,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,15,1,52,'Episodio 3','Descricao Episodio');
+insert into episodio values(default,19,2,33,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,19,2,28,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,19,3,39,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,5,4,43,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,5,4,58,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,5,5,36,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,5,5,48,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,10,6,61,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,13,7,33,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,13,7,41,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,13,7,50,'Episodio 3','Descricao Episodio');
+insert into episodio values(default,7,8,43,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,7,8,58,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,7,9,36,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,7,9,48,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,20,10,56,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,20,10,42,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,9,11,33,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,9,11,28,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,9,12,39,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,3,13,63,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,3,13,40,'Episodio 2','Descricao Episodio');
+insert into episodio values(default,17,14,43,'Episodio 1','Descricao Episodio');
+insert into episodio values(default,17,14,58,'Episodio 2','Descricao Episodio');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into realizador values(default, 'Jorge', 'Miguel');
+insert into realizador values(default, 'Manel', 'Duarte');
+insert into realizador values(default, 'Antonio', 'Palheta');
+insert into realizador values(default, 'Guilherme', 'Seixas');
+insert into realizador values(default, 'Tiago', 'Marmita');
+insert into realizador values(default, 'Rodrigo', 'Rodrigues');
+insert into realizador values(default, 'Beatriz', 'Galheta');
+insert into realizador values(default, 'Ernesto', 'Garcia');
+insert into realizador values(default, 'Luisa', 'Poiares');
+insert into realizador values(default, 'Frederico', 'Fraco');
+insert into realizador values(default, 'Francisca', 'Joana');
+insert into realizador values(default, 'Leandro', 'Fonseca');
+insert into realizador values(default, 'Pedro', 'Pinto');
+insert into realizador values(default, 'Frodo', 'Jesus');
+insert into realizador values(default, 'Cesar', 'Fausto');
+insert into realizador values(default, 'Camila', 'Coelho');
+insert into realizador values(default, 'Horacio', 'peres');
+insert into realizador values(default, 'Hugo', 'Miguel');
+insert into realizador values(default, 'Tiago', 'Baia');
+insert into realizador values(default, 'Rodrigo', 'Santos');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into ator values(default, 'Jesualdo', 'Mortagua');
+insert into ator values(default, 'Martim', 'Manha');
+insert into ator values(default, 'Lara', 'Vila');
+insert into ator values(default, 'Gustavo', 'Paulino');
+insert into ator values(default, 'Francisco', 'Esteves');
+insert into ator values(default, 'Rute', 'Marlene');
+insert into ator values(default, 'Paula', 'Neves');
+insert into ator values(default, 'Antonia', 'Torreira');
+insert into ator values(default, 'Vitor', 'Joaquim');
+insert into ator values(default, 'Joaquim', 'Mania');
+insert into ator values(default, 'Vitorino', 'Bola');
+insert into ator values(default, 'Rita', 'Migueis');
+insert into ator values(default, 'Rita', 'Guedes');
+insert into ator values(default, 'Francisca', 'Jesus');
+insert into ator values(default, 'Joao', 'Joelho');
+insert into ator values(default, 'Camilo', 'Oliveira');
+insert into ator values(default, 'Helder', 'Lourenço');
+insert into ator values(default, 'Lourenço', 'Miguel');
+insert into ator values(default, 'Tiago', 'Baia');
+insert into ator values(default, 'Joana', 'Santos');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into genero values(default, 'Ação');
+insert into genero values(default, 'Aventura');
+insert into genero values(default, 'Comédia');
+insert into genero values(default, 'Documentário');
+insert into genero values(default, 'Drama');
+insert into genero values(default, 'Ficção');
+insert into genero values(default, 'Terror');
+insert into genero values(default, 'Thriller');
+insert into genero values(default, 'Romance');
+insert into genero values(default, 'Mistério');
+insert into genero values(default, 'Suspense');
+insert into genero values(default, 'Fantasia');
+insert into genero values(default, 'Dança');
+insert into genero values(default, 'Guerra');
+insert into genero values(default, 'Policial');
+insert into genero values(default, 'Músical');
+insert into genero values(default, 'Luta');
+insert into genero values(default, 'Espionagem');
+insert into genero values(default, 'Curta-Metragem');
+insert into genero values(default, 'Animação');
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into trailer values('Trailer1',default,1);
+insert into trailer values('Trailer2',default,1);
+insert into trailer values('Trailer1',default,2);
+insert into trailer values('Trailer2',default,2);
+insert into trailer values('Trailer1',default,3);
+insert into trailer values('Trailer2',default,3);
+insert into trailer values('Trailer3',default,3);
+insert into trailer values('Trailer1',default,4);
+insert into trailer values('Trailer1',default,5);
+insert into trailer values('Trailer1',default,6);
+insert into trailer values('Trailer2',default,6);
+insert into trailer values('Trailer1',default,7);
+insert into trailer values('Trailer1',default,8);
+insert into trailer values('Trailer2',default,8);
+insert into trailer values('Trailer1',default,9);
+insert into trailer values('Trailer1',default,10);
+insert into trailer values('Trailer2',default,10);
+insert into trailer values('Trailer3',default,10);
+insert into trailer values('Trailer1',default,11);
+insert into trailer values('Trailer1',default,12);
+insert into trailer values('Trailer1',default,13);
+insert into trailer values('Trailer1',default,14);
+insert into trailer values('Trailer2',default,14);
+insert into trailer values('Trailer1',default,15);
+insert into trailer values('Trailer1',default,16);
+insert into trailer values('Trailer1',default,17);
+insert into trailer values('Trailer2',default,17);
+insert into trailer values('Trailer1',default,18);
+insert into trailer values('Trailer1',default,19);
+insert into trailer values('Trailer1',default,20);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into listacontem values(1,1);
+insert into listacontem values(1,5);
+insert into listacontem values(1,18);
+insert into listacontem values(1,13);
+insert into listacontem values(2,5);
+insert into listacontem values(2,2);
+insert into listacontem values(2,9);
+insert into listacontem values(3,7);
+insert into listacontem values(3,15);
+insert into listacontem values(4,13);
+insert into listacontem values(5,14);
+insert into listacontem values(5,16);
+insert into listacontem values(5,4);
+insert into listacontem values(6,3);
+insert into listacontem values(6,2);
+insert into listacontem values(7,1);
+insert into listacontem values(7,8);
+insert into listacontem values(7,19);
+insert into listacontem values(7,16);
+insert into listacontem values(8,12);
+insert into listacontem values(8,13);
+insert into listacontem values(9,5);
+insert into listacontem values(9,6);
+insert into listacontem values(10,7);
+insert into listacontem values(10,8);
+insert into listacontem values(10,9);
+insert into listacontem values(11,10);
+insert into listacontem values(11,14);
+insert into listacontem values(12,14);
+insert into listacontem values(13,19);
+insert into listacontem values(13,20);
+insert into listacontem values(14,20);
+insert into listacontem values(14,11);
+insert into listacontem values(15,7);
+insert into listacontem values(15,9);
+insert into listacontem values(16,8);
+insert into listacontem values(16,5);
+insert into listacontem values(17,4);
+insert into listacontem values(17,3);
+insert into listacontem values(17,2);
+insert into listacontem values(17,1);
+insert into listacontem values(18,19);
+insert into listacontem values(18,20);
+insert into listacontem values(18,14);
+insert into listacontem values(19,12);
+insert into listacontem values(19,1);
+insert into listacontem values(20,2);
+insert into listacontem values(20,6);
+insert into listacontem values(20,7);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into listadownloadcontem values(1,2);
+insert into listadownloadcontem values(1,3);
+insert into listadownloadcontem values(1,5);
+insert into listadownloadcontem values(1,7);
+insert into listadownloadcontem values(2,8);
+insert into listadownloadcontem values(2,12);
+insert into listadownloadcontem values(2,13);
+insert into listadownloadcontem values(3,14);
+insert into listadownloadcontem values(3,17);
+insert into listadownloadcontem values(4,18);
+insert into listadownloadcontem values(5,2);
+insert into listadownloadcontem values(5,3);
+insert into listadownloadcontem values(5,5);
+insert into listadownloadcontem values(6,7);
+insert into listadownloadcontem values(6,8);
+insert into listadownloadcontem values(7,12);
+insert into listadownloadcontem values(7,13);
+insert into listadownloadcontem values(7,14);
+insert into listadownloadcontem values(7,17);
+insert into listadownloadcontem values(8,18);
+insert into listadownloadcontem values(8,2);
+insert into listadownloadcontem values(9,3);
+insert into listadownloadcontem values(9,5);
+insert into listadownloadcontem values(10,7);
+insert into listadownloadcontem values(10,8);
+insert into listadownloadcontem values(11,12);
+insert into listadownloadcontem values(11,13);
+insert into listadownloadcontem values(12,14);
+insert into listadownloadcontem values(13,17);
+insert into listadownloadcontem values(13,18);
+insert into listadownloadcontem values(14,2);
+insert into listadownloadcontem values(14,3);
+insert into listadownloadcontem values(15,7);
+insert into listadownloadcontem values(15,5);
+insert into listadownloadcontem values(16,8);
+insert into listadownloadcontem values(16,12);
+insert into listadownloadcontem values(17,13);
+insert into listadownloadcontem values(17,14);
+insert into listadownloadcontem values(17,17);
+insert into listadownloadcontem values(17,18);
+insert into listadownloadcontem values(18,2);
+insert into listadownloadcontem values(18,3);
+insert into listadownloadcontem values(18,5);
+insert into listadownloadcontem values(19,7);
+insert into listadownloadcontem values(19,8);
+insert into listadownloadcontem values(20,12);
+insert into listadownloadcontem values(20,13);
+insert into listadownloadcontem values(20,14);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into lista values(1);
+insert into lista values(2);
+insert into lista values(3);
+insert into lista values(4);
+insert into lista values(5);
+insert into lista values(6);
+insert into lista values(7);
+insert into lista values(8);
+insert into lista values(9);
+insert into lista values(10);
+insert into lista values(11);
+insert into lista values(12);
+insert into lista values(13);
+insert into lista values(14);
+insert into lista values(15);
+insert into lista values(16);
+insert into lista values(17);
+insert into lista values(18);
+insert into lista values(19);
+insert into lista values(20);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into listadownload values(1);
+insert into listadownload values(2);
+insert into listadownload values(3);
+insert into listadownload values(4);
+insert into listadownload values(5);
+insert into listadownload values(6);
+insert into listadownload values(7);
+insert into listadownload values(8);
+insert into listadownload values(9);
+insert into listadownload values(10);
+insert into listadownload values(11);
+insert into listadownload values(12);
+insert into listadownload values(13);
+insert into listadownload values(14);
+insert into listadownload values(15);
+insert into listadownload values(16);
+insert into listadownload values(17);
+insert into listadownload values(18);
+insert into listadownload values(19);
+insert into listadownload values(20);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into possuigenero values(1,1);
+insert into possuigenero values(2,2);
+insert into possuigenero values(3,3);
+insert into possuigenero values(4,4);
+insert into possuigenero values(5,5);
+insert into possuigenero values(6,6);
+insert into possuigenero values(7,7);
+insert into possuigenero values(8,8);
+insert into possuigenero values(9,9);
+insert into possuigenero values(10,10);
+insert into possuigenero values(11,11);
+insert into possuigenero values(12,12);
+insert into possuigenero values(13,13);
+insert into possuigenero values(14,14);
+insert into possuigenero values(15,15);
+insert into possuigenero values(16,16);
+insert into possuigenero values(17,17);
+insert into possuigenero values(18,18);
+insert into possuigenero values(19,19);
+insert into possuigenero values(20,20);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into realiza values(1,1);
+insert into realiza values(2,1);
+insert into realiza values(2,2);
+insert into realiza values(3,3);
+insert into realiza values(3,4);
+insert into realiza values(3,5);
+insert into realiza values(4,11);
+insert into realiza values(5,18);
+insert into realiza values(5,14);
+insert into realiza values(6,6);
+insert into realiza values(7,7);
+insert into realiza values(8,9);
+insert into realiza values(9,9);
+insert into realiza values(10,10);
+insert into realiza values(11,10);
+insert into realiza values(12,12);
+insert into realiza values(13,13);
+insert into realiza values(14,15);
+insert into realiza values(15,15);
+insert into realiza values(16,16);
+insert into realiza values(17,17);
+insert into realiza values(18,19);
+insert into realiza values(19,19);
+insert into realiza values(20,20);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into representa values(1,1);
+insert into representa values(1,2);
+insert into representa values(1,3);
+insert into representa values(2,4);
+insert into representa values(2,5);
+insert into representa values(2,6);
+insert into representa values(2,7);
+insert into representa values(3,8);
+insert into representa values(3,9);
+insert into representa values(3,10);
+insert into representa values(4,12);
+insert into representa values(4,13);
+insert into representa values(5,14);
+insert into representa values(5,15);
+insert into representa values(6,16);
+insert into representa values(6,17);
+insert into representa values(6,18);
+insert into representa values(7,19);
+insert into representa values(7,1);
+insert into representa values(7,2);
+insert into representa values(8,3);
+insert into representa values(8,4);
+insert into representa values(9,5);
+insert into representa values(9,6);
+insert into representa values(10,7);
+insert into representa values(10,8);
+insert into representa values(10,9);
+insert into representa values(11,10);
+insert into representa values(11,12);
+insert into representa values(12,13);
+insert into representa values(12,14);
+insert into representa values(13,15);
+insert into representa values(13,16);
+insert into representa values(14,17);
+insert into representa values(14,18);
+insert into representa values(15,19);
+insert into representa values(15,1);
+insert into representa values(15,2);
+insert into representa values(15,3);
+insert into representa values(15,4);
+insert into representa values(15,5);
+insert into representa values(16,6);
+insert into representa values(16,7);
+insert into representa values(17,8);
+insert into representa values(18,9);
+insert into representa values(18,10);
+insert into representa values(19,11);
+insert into representa values(19,12);
+insert into representa values(19,13);
+insert into representa values(19,14);
+insert into representa values(20,15);
+insert into representa values(20,16);
+insert into representa values(20,17);
+
+/*-----------------------------------------------------------------------------------------*/
+
+insert into visualiza values(1,1,8,'2019-10-23');
+insert into visualiza values(1,1,7,'2019-06-14');
+insert into visualiza values(1,1,19,'2020-04-26');
+insert into visualiza values(1,2,18,'2021-01-03');
+insert into visualiza values(1,2,20,'2020-12-04');
+insert into visualiza values(1,2,11,'2019-09-09');
+insert into visualiza values(1,2,10,'2019-06-10');
+insert into visualiza values(1,4,6,'2020-05-25');
+insert into visualiza values(1,4,15,'2020-03-21');
+insert into visualiza values(1,4,2,'2020-07-28');
+insert into visualiza values(1,4,9,'2020-10-05');
+insert into visualiza values(2,5,3,'2019-01-27');
+insert into visualiza values(2,5,14,'2021-10-26');
+insert into visualiza values(2,5,17,'2021-12-26');
+insert into visualiza values(3,6,20,'2020-10-06');
+insert into visualiza values(3,6,18,'2019-04-03');
+insert into visualiza values(3,6,19,'2019-08-13');
+insert into visualiza values(3,7,8,'2019-09-18');
+insert into visualiza values(3,7,7,'2020-11-17');
+insert into visualiza values(3,7,12,'2019-07-19');
+insert into visualiza values(3,7,5,'2020-12-10');
+insert into visualiza values(4,8,14,'2021-11-15');
+insert into visualiza values(4,8,2,'2019-11-05');
+insert into visualiza values(4,8,11,'2019-11-05');
+insert into visualiza values(4,9,1,'2020-12-09');
+insert into visualiza values(4,9,2,'2019-07-15');
+insert into visualiza values(4,9,3,'2020-12-09');
+insert into visualiza values(4,9,12,'2019-07-15');
+insert into visualiza values(4,10,15,'2019-08-03');
+insert into visualiza values(4,10,16,'2019-09-06');
+insert into visualiza values(4,11,8,'2019-04-11');
+insert into visualiza values(4,11,7,'2019-08-19');
+insert into visualiza values(4,11,2,'2019-04-12');
+insert into visualiza values(4,11,9,'2019-10-05');
+insert into visualiza values(4,11,4,'2019-05-07');
+insert into visualiza values(4,11,13,'2019-08-11');
+insert into visualiza values(4,11,5,'2019-06-06');
+insert into visualiza values(4,12,18,'2019-03-02');
+insert into visualiza values(4,12,11,'2021-11-08');
+insert into visualiza values(4,12,9,'2019-07-23');
+insert into visualiza values(4,12,3,'2021-10-18');
+insert into visualiza values(5,13,5,'2020-09-18');
+insert into visualiza values(5,13,18,'2019-12-06');
+insert into visualiza values(5,13,8,'2020-01-02');
+insert into visualiza values(5,13,9,'2019-10-17');
+insert into visualiza values(5,14,17,'2021-03-14');
+insert into visualiza values(5,14,14,'2020-05-12');
+insert into visualiza values(5,14,11,'2021-10-14');
+insert into visualiza values(5,14,10,'2020-10-09');
+insert into visualiza values(5,15,3,'2021-04-07');
+insert into visualiza values(5,15,2,'2020-02-06');
+insert into visualiza values(5,15,1,'2020-03-03');
+insert into visualiza values(6,16,10,'2019-01-16');
+insert into visualiza values(6,16,9,'2019-08-04');
+insert into visualiza values(6,16,1,'2019-02-18');
+insert into visualiza values(6,16,16,'2019-09-14');
+insert into visualiza values(7,17,15,'2020-09-09');
+insert into visualiza values(7,17,12,'2020-11-05');
+insert into visualiza values(7,17,10,'2020-12-12');
+insert into visualiza values(8,18,8,'2021-10-22');
+insert into visualiza values(8,18,7,'2021-03-11');
+insert into visualiza values(8,18,19,'2021-11-12');
+insert into visualiza values(8,18,18,'2021-08-26');
+insert into visualiza values(8,19,16,'2019-10-18');
+insert into visualiza values(8,19,11,'2019-12-14');
+insert into visualiza values(8,19,10,'2019-08-08');
+insert into visualiza values(8,19,6,'2019-06-10');
+insert into visualiza values(9,20,13,'2021-12-09');
+insert into visualiza values(9,20,5,'2021-02-20');
+insert into visualiza values(9,20,12,'2021-11-16');
+insert into visualiza values(9,20,1,'2021-01-22');
+insert into visualiza values(9,21,17,'2021-12-27');
+insert into visualiza values(9,21,14,'2019-03-12');
+insert into visualiza values(9,21,13,'2021-10-28');
+insert into visualiza values(9,21,9,'2019-04-18');
+insert into visualiza values(9,22,20,'2019-12-12');
+insert into visualiza values(9,22,17,'2022-11-07');
+insert into visualiza values(9,22,1,'2019-08-18');
+insert into visualiza values(9,22,12,'2022-09-17');
+insert into visualiza values(10,23,5,'2022-12-02');
+insert into visualiza values(10,23,20,'2022-07-09');
+insert into visualiza values(10,23,13,'2022-10-01');
+insert into visualiza values(10,23,6,'2022-06-19');
+insert into visualiza values(10,24,14,'2019-10-07');
+insert into visualiza values(10,24,8,'2019-03-09');
+insert into visualiza values(10,24,18,'2019-05-20');
+insert into visualiza values(10,24,1,'2019-08-23');
+insert into visualiza values(10,25,5,'2019-05-23');
+insert into visualiza values(10,25,6,'2019-07-15');
+insert into visualiza values(10,25,16,'2019-11-25');
+insert into visualiza values(10,25,17,'2019-08-06');
+insert into visualiza values(10,26,20,'2020-06-06');
+insert into visualiza values(10,26,14,'2019-03-07');
+insert into visualiza values(10,26,13,'2020-05-10');
+insert into visualiza values(10,26,12,'2019-09-19');
+insert into visualiza values(11,27,11,'2021-01-10');
+insert into visualiza values(11,27,1,'2019-08-12');
+insert into visualiza values(11,27,2,'2019-07-12');
+insert into visualiza values(12,28,3,'2019-10-14');
+insert into visualiza values(12,28,1,'2021-12-18');
+insert into visualiza values(12,28,4,'2021-12-19');
+insert into visualiza values(12,29,4,'2019-10-23');
+insert into visualiza values(12,29,5,'2019-11-28');
+insert into visualiza values(13,30,6,'2020-07-18');
+insert into visualiza values(13,30,7,'2019-10-05');
+insert into visualiza values(13,30,17,'2020-07-14');
+insert into visualiza values(13,30,16,'2019-12-05');
+insert into visualiza values(13,31,12,'2020-11-06');
+insert into visualiza values(13,31,20,'2019-08-07');
+insert into visualiza values(13,31,18,'2020-09-08');
+insert into visualiza values(13,31,1,'2019-12-17');
+insert into visualiza values(13,31,5,'2019-07-18');
+insert into visualiza values(13,32,10,'2020-11-25');
+insert into visualiza values(13,32,15,'2019-08-23');
+insert into visualiza values(13,32,20,'2020-06-15');
+insert into visualiza values(13,32,18,'2019-07-05');
+insert into visualiza values(13,32,16,'2019-10-24');
+insert into visualiza values(14,33,14,'2019-05-06');
+insert into visualiza values(14,33,11,'2019-10-05');
+insert into visualiza values(14,33,1,'2019-07-24');
+insert into visualiza values(14,33,3,'2019-12-09');
+insert into visualiza values(14,34,6,'2019-10-30');
+insert into visualiza values(14,34,9,'2021-10-23');
+insert into visualiza values(14,34,8,'2019-12-30');
+insert into visualiza values(14,34,10,'2021-07-28');
+insert into visualiza values(15,35,20,'2019-02-23');
+insert into visualiza values(15,35,17,'2022-03-18');
+insert into visualiza values(15,35,18,'2019-10-24');
+insert into visualiza values(15,35,7,'2022-11-15');
+insert into visualiza values(15,36,8,'2019-08-14');
+insert into visualiza values(15,36,15,'2022-10-11');
+insert into visualiza values(15,36,5,'2022-12-10');
+insert into visualiza values(15,37,10,'2022-08-06');
+insert into visualiza values(15,37,3,'2022-11-02');
+insert into visualiza values(15,38,3,'2019-10-27');
+insert into visualiza values(15,38,6,'2019-10-21');
+insert into visualiza values(15,38,8,'2019-12-24');
+insert into visualiza values(16,39,9,'2019-10-01');
+insert into visualiza values(16,39,8,'2020-05-09');
+insert into visualiza values(17,40,15,'2020-10-16');
+insert into visualiza values(17,40,12,'2021-04-05');
+insert into visualiza values(17,40,3,'2020-12-18');
+insert into visualiza values(17,40,9,'2021-01-05');
+insert into visualiza values(18,41,8,'2021-05-19');
+insert into visualiza values(18,41,19,'2019-11-09');
+insert into visualiza values(18,41,14,'2021-08-10');
+insert into visualiza values(18,41,10,'2019-12-05');
+insert into visualiza values(18,42,19,'2019-10-17');
+insert into visualiza values(18,42,12,'2020-08-04');
+insert into visualiza values(18,42,5,'2019-10-06');
+insert into visualiza values(18,42,10,'2020-08-14');
+insert into visualiza values(18,42,3,'2020-08-08');
+insert into visualiza values(19,43,6,'2020-11-24');
+insert into visualiza values(19,43,8,'2019-10-23');
+insert into visualiza values(19,43,7,'2020-04-14');
+insert into visualiza values(19,43,19,'2019-08-03');
+insert into visualiza values(19,43,18,'2020-09-14');
+insert into visualiza values(19,43,1,'2019-11-13');
+insert into visualiza values(19,44,5,'2019-10-08');
+insert into visualiza values(19,44,6,'2019-04-10');
+insert into visualiza values(19,44,18,'2019-11-18');
+insert into visualiza values(19,44,20,'2019-05-14');
+insert into visualiza values(19,45,19,'2019-12-23');
+insert into visualiza values(19,45,3,'2021-10-25');
+insert into visualiza values(20,46,9,'2019-10-19');
+insert into visualiza values(20,46,14,'2019-12-23');
+insert into visualiza values(20,46,15,'2019-12-23');
+insert into visualiza values(20,47,11,'2020-10-26');
+insert into visualiza values(20,47,10,'2019-10-23');
+insert into visualiza values(20,47,6,'2019-10-23');

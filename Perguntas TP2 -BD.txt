@@ -1,0 +1,267 @@
+Trabalho Prático 2 - Base de Dados Engenharia Informática ISMAT, 2021/22
+Trabalho realizado por:
+                        Leandro Fonseca, a22001805
+                        Pedro Pinto, a22000888
+
+---------------------------------------------------------------------------------------------
+                                    Perguntas
+---------------------------------------------------------------------------------------------
+
+1.Quais filmes com duração inferior a 120 minutos que o perfil 'Primo Alemão - Joana' viu?
+
+select perfil.id as perfil_id, media.titulo as media_titulo, media.anolancamento as media_anolancamento, filme.duracao as filme_duracao
+from visualiza,filme,media,perfil
+where visualiza.idmedia = filme.idmedia and  filme.idmedia = media.id and visualiza.idperfil = perfil.id and filme.duracao < 120 and perfil.nome = 'Primo Alemão - Joana'
+order by 3 desc
+
+    R:
+        ----------------------------------------------------------------------------------
+        | perfil_id |                 media_titulo | media_anolancamento | filme_duracao | 
+        +-----------+------------------------------+---------------------+---------------+
+        |        24 |                   Lego Movie |                2008 |            87 | 
+        |        24 |                 Mickey Mouse |                2008 |            76 | 
+        |        24 | Harry Potter Pedra Filosofal |                2001 |           102 | 
+        +-----------+------------------------------+---------------------+---------------+
+
+
+2.Em que séries participou a Rute Marlene?
+
+select media.titulo as serie_titulo, media.id as id_media,ator.nome as ator_nome, ator.apelido as ator_apelido 
+from serie,ator,representa,media 
+where ator.id = representa.idator and serie.idmedia = representa.idmedia and media.id = representa.idmedia and ator.nome = 'Rute' and ator.apelido = 'Marlene';
+
+    R:
+        -------------------------------------------------------
+        |  serie_titulo | id_media | ator_nome | ator_apelido | 
+        +---------------+----------+-----------+--------------+
+        | F.R.I.E.N.D.S |       17 |      Rute |      Marlene | 
+        +---------------+----------+-----------+--------------+
+
+3.Quais os generos dos filmes realizados pelo realizador Tiago Marmita?
+
+with t as (
+	select idmedia,nome,apelido 
+	from realiza cross join realizador 
+	where realiza.idrealizador = realizador.id
+)	
+select media.id as media_id,media.titulo as media_titulo, t.nome as realizador_nome, t.apelido as realizador_apelido, genero.tipo as genero 
+from t,media,possuigenero,genero,filme
+where t.idmedia = media.id and media.id = possuigenero.idmedia and media.id = filme.idmedia and possuigenero.idgenero = genero.id and t.nome = 'Tiago' and t.apelido = 'Marmita';
+
+    R:
+        -----------------------------------------------------------------------------------------------
+        | media_id |                 media_titulo | realizador_nome | realizador_apelido |     genero | 
+        +----------+------------------------------+-----------------+--------------------+------------+
+        |       14 |                 Mickey Mouse |           Tiago |            Marmita |     Guerra | 
+        |       18 | Harry Potter Pedra Filosofal |           Tiago |            Marmita | Espionagem | 
+        +----------+------------------------------+-----------------+--------------------+------------+
+
+4.Top 3 perfis com duracao de filmes na lista
+
+with t as
+(select conta.id, perfil.nome, listacontem.idmedia, filme.duracao 
+from conta,perfil,listacontem, filme
+where conta.id = perfil.idconta
+and listacontem.idperfil = perfil.id
+and filme.idmedia = listacontem.idmedia)
+
+select t.id as conta_id, t.nome as perfil_nome, sum(t.duracao)as total_duração_filmes
+from t
+group by 1,2
+order by 3 desc
+limit 3
+
+    R:
+        -------------------------------------------------
+        | conta_id | perfil_nome | total_duração_filmes | 
+        +----------+-------------+----------------------+
+        |        7 |       Pedro |                  444 | 
+        |        2 |        João |                  354 | 
+        |        3 | Tiago - Pai |                  298 | 
+        +----------+-------------+----------------------+
+
+5.Qual o elenco do filme do Spider-man?
+
+with t as 
+(select ator.nome, ator.apelido, media.titulo 
+from representa, media, ator
+where idmedia=media.id
+and idator=ator.id)
+
+select t.nome, t.apelido
+from t
+where t.titulo = 'Spiderman'
+
+    R:
+        -----------------------
+        |     nome |  apelido | 
+        +----------+----------+
+        | Jesualdo | Mortagua | 
+        |    Paula |    Neves | 
+        |     João |   Joelho | 
+        +----------+----------+
+
+6.Quais os filmes e séries com melhor classificação?
+
+(select id as id_media, titulo, anolancamento, classificacao, 'filme' as tipo
+from media, filme
+where media.id = filme.idmedia
+and media.classificacao >= (select max(media.classificacao) from media, filme where media.id = filme.idmedia))
+union
+(select id as id_media, titulo, anolancamento, classificacao, 'serie' as tipo
+from media, serie
+where media.id = serie.idmedia
+and media.classificacao >= (select max(media.classificacao) from media, serie where media.id = serie.idmedia))
+
+    R:
+        ----------------------------------------------------------------------
+        | id_media |          titulo | anolancamento | classificacao |  tipo | 
+        +----------+-----------------+---------------+---------------+-------+
+        |       15 |    Black Mirror |          2017 |           9.7 | serie | 
+        |        5 | Game of Thrones |          2017 |           9.7 | serie | 
+        |       12 |        Matrix 1 |          2001 |           9.1 | filme | 
+        +----------+-----------------+---------------+---------------+-------+
+
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+
+
+
+---------------------------------------------------------------------------------------------
+                                    Store Procedures
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE sp_insert_media(character varying, character varying, numeric, character varying,
+                                 character varying, BOOLEAN) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.media(titulo, anolancamento, classificacao, restricaoidade, descricao, isdownloadable)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$$;
+
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE sp_insert_conta(character varying, text, character varying, date) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.conta(email, password, numerotelemovel, dataadesao)
+    values($1,$2,$3,$4);
+end;
+$$;
+
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE sp_insert_perfil(integer, character varying, character varying, character varying, character varying, character varying) 
+
+LANGUAGE 'plpgsql'
+AS
+$$
+begin
+    INSERT INTO public.perfil(idconta, nome, idioma, password, restricaoidade, tipo)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$$;
+
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+
+
+
+
+---------------------------------------------------------------------------------------------
+                                        Triggers
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public."Perfil_num_limit"()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    NOT LEAKPROOF
+AS $BODY$
+	DECLARE count_perfil INTEGER;
+	BEGIN
+		select count(id) into count_perfil
+		from perfil
+		where idconta=new.idconta;
+		if (count_perfil >= 5) then
+			raise notice 'Não pode sdicionar mais perfis';
+		else return new;
+		end if;
+		return null;
+	END;
+$BODY$;
+ALTER FUNCTION public."Perfil_num_limit"()
+    OWNER TO postgres;
+
+CREATE TRIGGER limit_number_perfil
+    BEFORE INSERT
+    ON public.perfil
+    FOR EACH ROW
+    EXECUTE FUNCTION public."Perfil_num_limit"();
+
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.restricao_idade_perfil()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    NOT LEAKPROOF
+AS $BODY$
+	BEGIN
+		if (new.tipo='Criança' and new.restricaoidade is null) then
+			raise notice 'Não pode adicionar um perfil de Criança sem uma restrição de idade';
+		else 
+			if (new.tipo='Normal' and new.restricaoidade is not null) then
+				raise notice 'Não pode adicionar um perfil Normal com uma restrição de idade';
+			else
+			return new;
+			end if;
+		end if;
+		return null;
+	END;
+$BODY$;
+ALTER FUNCTION public.restricao_idade_perfil()
+    OWNER TO postgres;
+	
+	
+CREATE TRIGGER "restricao_idade"
+    BEFORE INSERT
+    ON public.perfil
+    FOR EACH ROW
+    EXECUTE FUNCTION public.restricao_idade_perfil();
+
+---------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.media_is_downloadable()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+ 	NOT LEAKPROOF
+AS $BODY$
+	Declare id_media Integer;
+
+	BEGIN
+		if (new.idmedia in (select id from media where isdownloadable = true)) then
+			return new;
+		else
+			raise notice 'A media não pode ser transferido';
+		end if;
+		return null;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.media_is_downloadable()
+    OWNER TO postgres;
+	
+CREATE TRIGGER is_downloadable
+    BEFORE INSERT
+    ON public.listadownloadcontem
+    FOR EACH ROW
+    EXECUTE FUNCTION public.media_is_downloadable();
+
+---------------------------------------------------------------------------------------------

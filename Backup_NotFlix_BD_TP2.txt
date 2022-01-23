@@ -1,0 +1,2896 @@
+/*
+Trabalho Prático 2 - Base de Dados Engenharia Informática ISMAT, 2021/22
+Trabalho realizado por:
+                        Leandro Fonseca, a22001805
+                        Pedro Pinto, a22000888
+*/
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 12.9 (Ubuntu 12.9-0ubuntu0.20.04.1)
+-- Dumped by pg_dump version 12.9 (Ubuntu 12.9-0ubuntu0.20.04.1)
+
+-- Started on 2022-01-23 20:44:53 WET
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- TOC entry 255 (class 1255 OID 27245)
+-- Name: Perfil_num_limit(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public."Perfil_num_limit"() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+	DECLARE count_perfil INTEGER;
+	BEGIN
+		select count(id) into count_perfil
+		from perfil
+		where idconta=new.idconta;
+		if (count_perfil >= 5) then
+			raise notice 'Não pode sdicionar mais perfis';
+		else return new;
+		end if;
+		return null;
+	END;
+$$;
+
+
+ALTER FUNCTION public."Perfil_num_limit"() OWNER TO postgres;
+
+--
+-- TOC entry 257 (class 1255 OID 27249)
+-- Name: media_is_downloadable(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.media_is_downloadable() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+	Declare id_media Integer;
+
+	BEGIN
+		if (new.idmedia in (select id from media where isdownloadable = true)) then
+			return new;
+		else
+			raise notice 'A media não pode ser transferido';
+		end if;
+		return null;
+	END;
+$$;
+
+
+ALTER FUNCTION public.media_is_downloadable() OWNER TO postgres;
+
+--
+-- TOC entry 256 (class 1255 OID 27247)
+-- Name: restricao_idade_perfil(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.restricao_idade_perfil() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+	BEGIN
+		if (new.tipo='Criança' and new.restricaoidade is null) then
+			raise notice 'Não pode adicionar um perfil de Criança sem uma restrição de idade';
+		else 
+			if (new.tipo='Normal' and new.restricaoidade is not null) then
+				raise notice 'Não pode adicionar um perfil Normal com uma restrição de idade';
+			else
+			return new;
+			end if;
+		end if;
+		return null;
+	END;
+$$;
+
+
+ALTER FUNCTION public.restricao_idade_perfil() OWNER TO postgres;
+
+--
+-- TOC entry 253 (class 1255 OID 27243)
+-- Name: sp_insert_conta(character varying, text, character varying, date); Type: PROCEDURE; Schema: public; Owner: admin
+--
+
+CREATE PROCEDURE public.sp_insert_conta(character varying, text, character varying, date)
+    LANGUAGE plpgsql
+    AS $_$
+begin
+    INSERT INTO public.conta(email, password, numerotelemovel, dataadesao)
+    values($1,$2,$3,$4);
+end;
+$_$;
+
+
+ALTER PROCEDURE public.sp_insert_conta(character varying, text, character varying, date) OWNER TO admin;
+
+--
+-- TOC entry 252 (class 1255 OID 27242)
+-- Name: sp_insert_media(character varying, character varying, numeric, character varying, character varying, boolean); Type: PROCEDURE; Schema: public; Owner: admin
+--
+
+CREATE PROCEDURE public.sp_insert_media(character varying, character varying, numeric, character varying, character varying, boolean)
+    LANGUAGE plpgsql
+    AS $_$
+begin
+    INSERT INTO public.media(titulo, anolancamento, classificacao, restricaoidade, descricao, isdownloadable)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$_$;
+
+
+ALTER PROCEDURE public.sp_insert_media(character varying, character varying, numeric, character varying, character varying, boolean) OWNER TO admin;
+
+--
+-- TOC entry 254 (class 1255 OID 27244)
+-- Name: sp_insert_perfil(integer, character varying, character varying, character varying, character varying, character varying); Type: PROCEDURE; Schema: public; Owner: admin
+--
+
+CREATE PROCEDURE public.sp_insert_perfil(integer, character varying, character varying, character varying, character varying, character varying)
+    LANGUAGE plpgsql
+    AS $_$
+begin
+    INSERT INTO public.perfil(idconta, nome, idioma, password, restricaoidade, tipo)
+    values($1,$2,$3,$4,$5,$6);
+end;
+$_$;
+
+
+ALTER PROCEDURE public.sp_insert_perfil(integer, character varying, character varying, character varying, character varying, character varying) OWNER TO admin;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- TOC entry 224 (class 1259 OID 27071)
+-- Name: ator; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.ator (
+    id integer NOT NULL,
+    nome character varying(50) NOT NULL,
+    apelido character varying(50) NOT NULL
+);
+
+
+ALTER TABLE public.ator OWNER TO admin;
+
+--
+-- TOC entry 223 (class 1259 OID 27069)
+-- Name: ator_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.ator_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.ator_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3239 (class 0 OID 0)
+-- Dependencies: 223
+-- Name: ator_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.ator_id_seq OWNED BY public.ator.id;
+
+
+--
+-- TOC entry 203 (class 1259 OID 26942)
+-- Name: conta; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.conta (
+    id integer NOT NULL,
+    email character varying(50) NOT NULL,
+    password text NOT NULL,
+    numerotelemovel character varying(20),
+    dataadesao date NOT NULL
+);
+
+
+ALTER TABLE public.conta OWNER TO admin;
+
+--
+-- TOC entry 202 (class 1259 OID 26940)
+-- Name: conta_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.conta_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.conta_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3240 (class 0 OID 0)
+-- Dependencies: 202
+-- Name: conta_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.conta_id_seq OWNED BY public.conta.id;
+
+
+--
+-- TOC entry 241 (class 1259 OID 27161)
+-- Name: episodio; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.episodio (
+    id integer NOT NULL,
+    idmedia integer NOT NULL,
+    idtemporada integer NOT NULL,
+    duracao smallint NOT NULL,
+    titulo character varying(50) NOT NULL,
+    descricao text
+);
+
+
+ALTER TABLE public.episodio OWNER TO admin;
+
+--
+-- TOC entry 238 (class 1259 OID 27155)
+-- Name: episodio_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.episodio_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.episodio_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3241 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: episodio_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.episodio_id_seq OWNED BY public.episodio.id;
+
+
+--
+-- TOC entry 239 (class 1259 OID 27157)
+-- Name: episodio_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.episodio_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.episodio_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3242 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: episodio_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.episodio_idmedia_seq OWNED BY public.episodio.idmedia;
+
+
+--
+-- TOC entry 240 (class 1259 OID 27159)
+-- Name: episodio_idtemporada_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.episodio_idtemporada_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.episodio_idtemporada_seq OWNER TO admin;
+
+--
+-- TOC entry 3243 (class 0 OID 0)
+-- Dependencies: 240
+-- Name: episodio_idtemporada_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.episodio_idtemporada_seq OWNED BY public.episodio.idtemporada;
+
+
+--
+-- TOC entry 234 (class 1259 OID 27126)
+-- Name: filme; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.filme (
+    idmedia integer NOT NULL,
+    duracao smallint NOT NULL
+);
+
+
+ALTER TABLE public.filme OWNER TO admin;
+
+--
+-- TOC entry 233 (class 1259 OID 27124)
+-- Name: filme_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.filme_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.filme_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3244 (class 0 OID 0)
+-- Dependencies: 233
+-- Name: filme_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.filme_idmedia_seq OWNED BY public.filme.idmedia;
+
+
+--
+-- TOC entry 214 (class 1259 OID 27015)
+-- Name: genero; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.genero (
+    id integer NOT NULL,
+    tipo character varying(50) NOT NULL
+);
+
+
+ALTER TABLE public.genero OWNER TO admin;
+
+--
+-- TOC entry 213 (class 1259 OID 27013)
+-- Name: genero_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.genero_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.genero_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3245 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: genero_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.genero_id_seq OWNED BY public.genero.id;
+
+
+--
+-- TOC entry 243 (class 1259 OID 27184)
+-- Name: lista; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.lista (
+    idperfil integer NOT NULL
+);
+
+
+ALTER TABLE public.lista OWNER TO admin;
+
+--
+-- TOC entry 242 (class 1259 OID 27182)
+-- Name: lista_idperfil_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.lista_idperfil_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.lista_idperfil_seq OWNER TO admin;
+
+--
+-- TOC entry 3246 (class 0 OID 0)
+-- Dependencies: 242
+-- Name: lista_idperfil_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.lista_idperfil_seq OWNED BY public.lista.idperfil;
+
+
+--
+-- TOC entry 248 (class 1259 OID 27208)
+-- Name: listacontem; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.listacontem (
+    idperfil integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.listacontem OWNER TO admin;
+
+--
+-- TOC entry 247 (class 1259 OID 27206)
+-- Name: listacontem_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.listacontem_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.listacontem_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3247 (class 0 OID 0)
+-- Dependencies: 247
+-- Name: listacontem_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.listacontem_idmedia_seq OWNED BY public.listacontem.idmedia;
+
+
+--
+-- TOC entry 246 (class 1259 OID 27204)
+-- Name: listacontem_idperfil_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.listacontem_idperfil_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.listacontem_idperfil_seq OWNER TO admin;
+
+--
+-- TOC entry 3248 (class 0 OID 0)
+-- Dependencies: 246
+-- Name: listacontem_idperfil_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.listacontem_idperfil_seq OWNED BY public.listacontem.idperfil;
+
+
+--
+-- TOC entry 245 (class 1259 OID 27195)
+-- Name: listadownload; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.listadownload (
+    idperfil integer NOT NULL
+);
+
+
+ALTER TABLE public.listadownload OWNER TO admin;
+
+--
+-- TOC entry 244 (class 1259 OID 27193)
+-- Name: listadownload_idperfil_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.listadownload_idperfil_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.listadownload_idperfil_seq OWNER TO admin;
+
+--
+-- TOC entry 3249 (class 0 OID 0)
+-- Dependencies: 244
+-- Name: listadownload_idperfil_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.listadownload_idperfil_seq OWNED BY public.listadownload.idperfil;
+
+
+--
+-- TOC entry 251 (class 1259 OID 27227)
+-- Name: listadownloadcontem; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.listadownloadcontem (
+    idperfil integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.listadownloadcontem OWNER TO admin;
+
+--
+-- TOC entry 250 (class 1259 OID 27225)
+-- Name: listadownloadcontem_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.listadownloadcontem_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.listadownloadcontem_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3250 (class 0 OID 0)
+-- Dependencies: 250
+-- Name: listadownloadcontem_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.listadownloadcontem_idmedia_seq OWNED BY public.listadownloadcontem.idmedia;
+
+
+--
+-- TOC entry 249 (class 1259 OID 27223)
+-- Name: listadownloadcontem_idperfil_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.listadownloadcontem_idperfil_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.listadownloadcontem_idperfil_seq OWNER TO admin;
+
+--
+-- TOC entry 3251 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: listadownloadcontem_idperfil_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.listadownloadcontem_idperfil_seq OWNED BY public.listadownloadcontem.idperfil;
+
+
+--
+-- TOC entry 208 (class 1259 OID 26977)
+-- Name: media; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.media (
+    id integer NOT NULL,
+    titulo character varying(50) NOT NULL,
+    anolancamento character varying(4) NOT NULL,
+    classificacao real NOT NULL,
+    restricaoidade character varying(5),
+    descricao text,
+    isdownloadable boolean NOT NULL
+);
+
+
+ALTER TABLE public.media OWNER TO admin;
+
+--
+-- TOC entry 207 (class 1259 OID 26975)
+-- Name: media_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.media_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.media_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3252 (class 0 OID 0)
+-- Dependencies: 207
+-- Name: media_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.media_id_seq OWNED BY public.media.id;
+
+
+--
+-- TOC entry 206 (class 1259 OID 26959)
+-- Name: perfil; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.perfil (
+    idconta integer NOT NULL,
+    id integer NOT NULL,
+    nome character varying(50) NOT NULL,
+    idioma character varying(30) NOT NULL,
+    password text NOT NULL,
+    restricaoidade character varying(5),
+    tipo character varying(10) NOT NULL,
+    CONSTRAINT perfil_tipo_check CHECK (((tipo)::text = ANY ((ARRAY['Normal'::character varying, 'Criança'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.perfil OWNER TO admin;
+
+--
+-- TOC entry 205 (class 1259 OID 26957)
+-- Name: perfil_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.perfil_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.perfil_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3253 (class 0 OID 0)
+-- Dependencies: 205
+-- Name: perfil_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.perfil_id_seq OWNED BY public.perfil.id;
+
+
+--
+-- TOC entry 204 (class 1259 OID 26955)
+-- Name: perfil_idconta_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.perfil_idconta_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.perfil_idconta_seq OWNER TO admin;
+
+--
+-- TOC entry 3254 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: perfil_idconta_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.perfil_idconta_seq OWNED BY public.perfil.idconta;
+
+
+--
+-- TOC entry 217 (class 1259 OID 27027)
+-- Name: possuigenero; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.possuigenero (
+    idgenero integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.possuigenero OWNER TO admin;
+
+--
+-- TOC entry 215 (class 1259 OID 27023)
+-- Name: possuigenero_idgenero_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.possuigenero_idgenero_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.possuigenero_idgenero_seq OWNER TO admin;
+
+--
+-- TOC entry 3255 (class 0 OID 0)
+-- Dependencies: 215
+-- Name: possuigenero_idgenero_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.possuigenero_idgenero_seq OWNED BY public.possuigenero.idgenero;
+
+
+--
+-- TOC entry 216 (class 1259 OID 27025)
+-- Name: possuigenero_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.possuigenero_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.possuigenero_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3256 (class 0 OID 0)
+-- Dependencies: 216
+-- Name: possuigenero_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.possuigenero_idmedia_seq OWNED BY public.possuigenero.idmedia;
+
+
+--
+-- TOC entry 222 (class 1259 OID 27054)
+-- Name: realiza; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.realiza (
+    idrealizador integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.realiza OWNER TO admin;
+
+--
+-- TOC entry 221 (class 1259 OID 27052)
+-- Name: realiza_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.realiza_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.realiza_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3257 (class 0 OID 0)
+-- Dependencies: 221
+-- Name: realiza_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.realiza_idmedia_seq OWNED BY public.realiza.idmedia;
+
+
+--
+-- TOC entry 220 (class 1259 OID 27050)
+-- Name: realiza_idrealizador_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.realiza_idrealizador_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.realiza_idrealizador_seq OWNER TO admin;
+
+--
+-- TOC entry 3258 (class 0 OID 0)
+-- Dependencies: 220
+-- Name: realiza_idrealizador_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.realiza_idrealizador_seq OWNED BY public.realiza.idrealizador;
+
+
+--
+-- TOC entry 219 (class 1259 OID 27044)
+-- Name: realizador; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.realizador (
+    id integer NOT NULL,
+    nome character varying(50) NOT NULL,
+    apelido character varying(50) NOT NULL
+);
+
+
+ALTER TABLE public.realizador OWNER TO admin;
+
+--
+-- TOC entry 218 (class 1259 OID 27042)
+-- Name: realizador_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.realizador_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.realizador_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3259 (class 0 OID 0)
+-- Dependencies: 218
+-- Name: realizador_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.realizador_id_seq OWNED BY public.realizador.id;
+
+
+--
+-- TOC entry 227 (class 1259 OID 27081)
+-- Name: representa; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.representa (
+    idator integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.representa OWNER TO admin;
+
+--
+-- TOC entry 225 (class 1259 OID 27077)
+-- Name: representa_idator_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.representa_idator_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.representa_idator_seq OWNER TO admin;
+
+--
+-- TOC entry 3260 (class 0 OID 0)
+-- Dependencies: 225
+-- Name: representa_idator_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.representa_idator_seq OWNED BY public.representa.idator;
+
+
+--
+-- TOC entry 226 (class 1259 OID 27079)
+-- Name: representa_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.representa_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.representa_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3261 (class 0 OID 0)
+-- Dependencies: 226
+-- Name: representa_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.representa_idmedia_seq OWNED BY public.representa.idmedia;
+
+
+--
+-- TOC entry 232 (class 1259 OID 27114)
+-- Name: serie; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.serie (
+    idmedia integer NOT NULL,
+    numtemporadas smallint NOT NULL,
+    CONSTRAINT serie_numtemporadas_check CHECK ((numtemporadas >= 1))
+);
+
+
+ALTER TABLE public.serie OWNER TO admin;
+
+--
+-- TOC entry 231 (class 1259 OID 27112)
+-- Name: serie_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.serie_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.serie_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3262 (class 0 OID 0)
+-- Dependencies: 231
+-- Name: serie_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.serie_idmedia_seq OWNED BY public.serie.idmedia;
+
+
+--
+-- TOC entry 237 (class 1259 OID 27139)
+-- Name: temporada; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.temporada (
+    id integer NOT NULL,
+    idmedia integer NOT NULL,
+    numepisodios smallint NOT NULL,
+    anolancamento character varying(4) NOT NULL,
+    descricao text,
+    CONSTRAINT temporada_numepisodios_check CHECK ((numepisodios >= 1))
+);
+
+
+ALTER TABLE public.temporada OWNER TO admin;
+
+--
+-- TOC entry 235 (class 1259 OID 27135)
+-- Name: temporada_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.temporada_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.temporada_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3263 (class 0 OID 0)
+-- Dependencies: 235
+-- Name: temporada_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.temporada_id_seq OWNED BY public.temporada.id;
+
+
+--
+-- TOC entry 236 (class 1259 OID 27137)
+-- Name: temporada_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.temporada_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.temporada_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3264 (class 0 OID 0)
+-- Dependencies: 236
+-- Name: temporada_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.temporada_idmedia_seq OWNED BY public.temporada.idmedia;
+
+
+--
+-- TOC entry 230 (class 1259 OID 27100)
+-- Name: trailer; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.trailer (
+    titulo character varying(50) NOT NULL,
+    id integer NOT NULL,
+    idmedia integer NOT NULL
+);
+
+
+ALTER TABLE public.trailer OWNER TO admin;
+
+--
+-- TOC entry 228 (class 1259 OID 27096)
+-- Name: trailer_id_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.trailer_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.trailer_id_seq OWNER TO admin;
+
+--
+-- TOC entry 3265 (class 0 OID 0)
+-- Dependencies: 228
+-- Name: trailer_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.trailer_id_seq OWNED BY public.trailer.id;
+
+
+--
+-- TOC entry 229 (class 1259 OID 27098)
+-- Name: trailer_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.trailer_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.trailer_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3266 (class 0 OID 0)
+-- Dependencies: 229
+-- Name: trailer_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.trailer_idmedia_seq OWNED BY public.trailer.idmedia;
+
+
+--
+-- TOC entry 212 (class 1259 OID 26992)
+-- Name: visualiza; Type: TABLE; Schema: public; Owner: admin
+--
+
+CREATE TABLE public.visualiza (
+    idconta integer NOT NULL,
+    idperfil integer NOT NULL,
+    idmedia integer NOT NULL,
+    data date NOT NULL
+);
+
+
+ALTER TABLE public.visualiza OWNER TO admin;
+
+--
+-- TOC entry 209 (class 1259 OID 26986)
+-- Name: visualiza_idconta_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.visualiza_idconta_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.visualiza_idconta_seq OWNER TO admin;
+
+--
+-- TOC entry 3267 (class 0 OID 0)
+-- Dependencies: 209
+-- Name: visualiza_idconta_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.visualiza_idconta_seq OWNED BY public.visualiza.idconta;
+
+
+--
+-- TOC entry 211 (class 1259 OID 26990)
+-- Name: visualiza_idmedia_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.visualiza_idmedia_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.visualiza_idmedia_seq OWNER TO admin;
+
+--
+-- TOC entry 3268 (class 0 OID 0)
+-- Dependencies: 211
+-- Name: visualiza_idmedia_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.visualiza_idmedia_seq OWNED BY public.visualiza.idmedia;
+
+
+--
+-- TOC entry 210 (class 1259 OID 26988)
+-- Name: visualiza_idperfil_seq; Type: SEQUENCE; Schema: public; Owner: admin
+--
+
+CREATE SEQUENCE public.visualiza_idperfil_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.visualiza_idperfil_seq OWNER TO admin;
+
+--
+-- TOC entry 3269 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: visualiza_idperfil_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: admin
+--
+
+ALTER SEQUENCE public.visualiza_idperfil_seq OWNED BY public.visualiza.idperfil;
+
+
+--
+-- TOC entry 2989 (class 2604 OID 27074)
+-- Name: ator id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.ator ALTER COLUMN id SET DEFAULT nextval('public.ator_id_seq'::regclass);
+
+
+--
+-- TOC entry 2975 (class 2604 OID 26945)
+-- Name: conta id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.conta ALTER COLUMN id SET DEFAULT nextval('public.conta_id_seq'::regclass);
+
+
+--
+-- TOC entry 3000 (class 2604 OID 27164)
+-- Name: episodio id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio ALTER COLUMN id SET DEFAULT nextval('public.episodio_id_seq'::regclass);
+
+
+--
+-- TOC entry 3001 (class 2604 OID 27165)
+-- Name: episodio idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio ALTER COLUMN idmedia SET DEFAULT nextval('public.episodio_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 3002 (class 2604 OID 27166)
+-- Name: episodio idtemporada; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio ALTER COLUMN idtemporada SET DEFAULT nextval('public.episodio_idtemporada_seq'::regclass);
+
+
+--
+-- TOC entry 2996 (class 2604 OID 27129)
+-- Name: filme idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.filme ALTER COLUMN idmedia SET DEFAULT nextval('public.filme_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2983 (class 2604 OID 27018)
+-- Name: genero id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.genero ALTER COLUMN id SET DEFAULT nextval('public.genero_id_seq'::regclass);
+
+
+--
+-- TOC entry 3003 (class 2604 OID 27187)
+-- Name: lista idperfil; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.lista ALTER COLUMN idperfil SET DEFAULT nextval('public.lista_idperfil_seq'::regclass);
+
+
+--
+-- TOC entry 3005 (class 2604 OID 27211)
+-- Name: listacontem idperfil; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listacontem ALTER COLUMN idperfil SET DEFAULT nextval('public.listacontem_idperfil_seq'::regclass);
+
+
+--
+-- TOC entry 3006 (class 2604 OID 27212)
+-- Name: listacontem idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listacontem ALTER COLUMN idmedia SET DEFAULT nextval('public.listacontem_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 3004 (class 2604 OID 27198)
+-- Name: listadownload idperfil; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownload ALTER COLUMN idperfil SET DEFAULT nextval('public.listadownload_idperfil_seq'::regclass);
+
+
+--
+-- TOC entry 3007 (class 2604 OID 27230)
+-- Name: listadownloadcontem idperfil; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownloadcontem ALTER COLUMN idperfil SET DEFAULT nextval('public.listadownloadcontem_idperfil_seq'::regclass);
+
+
+--
+-- TOC entry 3008 (class 2604 OID 27231)
+-- Name: listadownloadcontem idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownloadcontem ALTER COLUMN idmedia SET DEFAULT nextval('public.listadownloadcontem_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2979 (class 2604 OID 26980)
+-- Name: media id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.media ALTER COLUMN id SET DEFAULT nextval('public.media_id_seq'::regclass);
+
+
+--
+-- TOC entry 2976 (class 2604 OID 26962)
+-- Name: perfil idconta; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.perfil ALTER COLUMN idconta SET DEFAULT nextval('public.perfil_idconta_seq'::regclass);
+
+
+--
+-- TOC entry 2977 (class 2604 OID 26963)
+-- Name: perfil id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.perfil ALTER COLUMN id SET DEFAULT nextval('public.perfil_id_seq'::regclass);
+
+
+--
+-- TOC entry 2984 (class 2604 OID 27030)
+-- Name: possuigenero idgenero; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.possuigenero ALTER COLUMN idgenero SET DEFAULT nextval('public.possuigenero_idgenero_seq'::regclass);
+
+
+--
+-- TOC entry 2985 (class 2604 OID 27031)
+-- Name: possuigenero idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.possuigenero ALTER COLUMN idmedia SET DEFAULT nextval('public.possuigenero_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2987 (class 2604 OID 27057)
+-- Name: realiza idrealizador; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realiza ALTER COLUMN idrealizador SET DEFAULT nextval('public.realiza_idrealizador_seq'::regclass);
+
+
+--
+-- TOC entry 2988 (class 2604 OID 27058)
+-- Name: realiza idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realiza ALTER COLUMN idmedia SET DEFAULT nextval('public.realiza_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2986 (class 2604 OID 27047)
+-- Name: realizador id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realizador ALTER COLUMN id SET DEFAULT nextval('public.realizador_id_seq'::regclass);
+
+
+--
+-- TOC entry 2990 (class 2604 OID 27084)
+-- Name: representa idator; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.representa ALTER COLUMN idator SET DEFAULT nextval('public.representa_idator_seq'::regclass);
+
+
+--
+-- TOC entry 2991 (class 2604 OID 27085)
+-- Name: representa idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.representa ALTER COLUMN idmedia SET DEFAULT nextval('public.representa_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2994 (class 2604 OID 27117)
+-- Name: serie idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.serie ALTER COLUMN idmedia SET DEFAULT nextval('public.serie_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2997 (class 2604 OID 27142)
+-- Name: temporada id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.temporada ALTER COLUMN id SET DEFAULT nextval('public.temporada_id_seq'::regclass);
+
+
+--
+-- TOC entry 2998 (class 2604 OID 27143)
+-- Name: temporada idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.temporada ALTER COLUMN idmedia SET DEFAULT nextval('public.temporada_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2992 (class 2604 OID 27103)
+-- Name: trailer id; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.trailer ALTER COLUMN id SET DEFAULT nextval('public.trailer_id_seq'::regclass);
+
+
+--
+-- TOC entry 2993 (class 2604 OID 27104)
+-- Name: trailer idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.trailer ALTER COLUMN idmedia SET DEFAULT nextval('public.trailer_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 2980 (class 2604 OID 26995)
+-- Name: visualiza idconta; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza ALTER COLUMN idconta SET DEFAULT nextval('public.visualiza_idconta_seq'::regclass);
+
+
+--
+-- TOC entry 2981 (class 2604 OID 26996)
+-- Name: visualiza idperfil; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza ALTER COLUMN idperfil SET DEFAULT nextval('public.visualiza_idperfil_seq'::regclass);
+
+
+--
+-- TOC entry 2982 (class 2604 OID 26997)
+-- Name: visualiza idmedia; Type: DEFAULT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza ALTER COLUMN idmedia SET DEFAULT nextval('public.visualiza_idmedia_seq'::regclass);
+
+
+--
+-- TOC entry 3206 (class 0 OID 27071)
+-- Dependencies: 224
+-- Data for Name: ator; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.ator (id, nome, apelido) FROM stdin;
+1	Jesualdo	Mortagua
+2	Martim	Manha
+3	Lara	Vila
+4	Gustavo	Paulino
+5	Francisco	Esteves
+6	Rute	Marlene
+7	Paula	Neves
+8	Antonia	Torreira
+9	Vitor	Joaquim
+10	Joaquim	Mania
+11	Vitorino	Bola
+12	Rita	Migueis
+13	Rita	Guedes
+14	Francisca	Jesus
+15	Joao	Joelho
+16	Camilo	Oliveira
+17	Helder	Lourenço
+18	Lourenço	Miguel
+19	Tiago	Baia
+20	Joana	Santos
+\.
+
+
+--
+-- TOC entry 3185 (class 0 OID 26942)
+-- Dependencies: 203
+-- Data for Name: conta; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.conta (id, email, password, numerotelemovel, dataadesao) FROM stdin;
+1	teste@teste.ismat.pt	passwordsegura	910000000	2022-01-01
+2	joao@teste.ismat.pt	passwordsegura	910000001	2022-01-02
+3	tiago@teste.ismat.pt	passwordsegura	910000002	2022-01-03
+4	alberto@teste.ismat.pt	passwordsegura	910000003	2022-01-03
+5	maria@teste.ismat.pt	passwordsegura	910000004	2022-01-03
+6	ines@teste.ismat.pt	passwordsegura	910000005	2022-02-01
+7	pedro@teste.ismat.pt	passwordsegura	910000006	2022-02-04
+8	alexandre@teste.ismat.pt	passwordsegura	910000007	2022-02-01
+9	mariana@teste.ismat.pt	passwordsegura	910000008	2022-03-12
+10	joana@teste.ismat.pt	passwordsegura	910000009	2022-03-28
+11	ricardo@teste.ismat.pt	passwordsegura	910000010	2022-05-08
+12	diogo@teste.ismat.pt	passwordsegura	910000011	2022-05-17
+13	margarida@teste.ismat.pt	passwordsegura	910000012	2022-06-05
+14	ana@teste.ismat.pt	passwordsegura	910000013	2022-06-05
+15	ze@teste.ismat.pt	passwordsegura	910000014	2022-06-05
+16	marcio@teste.ismat.pt	passwordsegura	910000015	2022-10-10
+17	silvia@teste.ismat.pt	passwordsegura	910000016	2022-11-11
+18	leandro@teste.ismat.pt	passwordsegura	910000017	2022-11-21
+19	fatima@teste.ismat.pt	passwordsegura	910000018	2022-12-07
+20	manuel@teste.ismat.pt	passwordsegura	910000019	2022-12-18
+\.
+
+
+--
+-- TOC entry 3223 (class 0 OID 27161)
+-- Dependencies: 241
+-- Data for Name: episodio; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.episodio (id, idmedia, idtemporada, duracao, titulo, descricao) FROM stdin;
+1	15	1	63	Episodio 1	Descricao Episodio
+2	15	1	40	Episodio 2	Descricao Episodio
+3	15	1	52	Episodio 3	Descricao Episodio
+4	19	2	33	Episodio 1	Descricao Episodio
+5	19	2	28	Episodio 2	Descricao Episodio
+6	19	3	39	Episodio 1	Descricao Episodio
+7	5	4	43	Episodio 1	Descricao Episodio
+8	5	4	58	Episodio 2	Descricao Episodio
+9	5	5	36	Episodio 1	Descricao Episodio
+10	5	5	48	Episodio 2	Descricao Episodio
+11	10	6	61	Episodio 1	Descricao Episodio
+12	13	7	33	Episodio 1	Descricao Episodio
+13	13	7	41	Episodio 2	Descricao Episodio
+14	13	7	50	Episodio 3	Descricao Episodio
+15	7	8	43	Episodio 1	Descricao Episodio
+16	7	8	58	Episodio 2	Descricao Episodio
+17	7	9	36	Episodio 1	Descricao Episodio
+18	7	9	48	Episodio 2	Descricao Episodio
+19	20	10	56	Episodio 1	Descricao Episodio
+20	20	10	42	Episodio 2	Descricao Episodio
+21	9	11	33	Episodio 1	Descricao Episodio
+22	9	11	28	Episodio 2	Descricao Episodio
+23	9	12	39	Episodio 1	Descricao Episodio
+24	3	13	63	Episodio 1	Descricao Episodio
+25	3	13	40	Episodio 2	Descricao Episodio
+26	17	14	43	Episodio 1	Descricao Episodio
+27	17	14	58	Episodio 2	Descricao Episodio
+\.
+
+
+--
+-- TOC entry 3216 (class 0 OID 27126)
+-- Dependencies: 234
+-- Data for Name: filme; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.filme (idmedia, duracao) FROM stdin;
+1	143
+2	91
+4	210
+6	124
+8	87
+11	118
+12	135
+14	76
+16	68
+18	102
+\.
+
+
+--
+-- TOC entry 3196 (class 0 OID 27015)
+-- Dependencies: 214
+-- Data for Name: genero; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.genero (id, tipo) FROM stdin;
+1	Ação
+2	Aventura
+3	Comédia
+4	Documentário
+5	Drama
+6	Ficção
+7	Terror
+8	Thriller
+9	Romance
+10	Mistério
+11	Suspense
+12	Fantasia
+13	Dança
+14	Guerra
+15	Policial
+16	Músical
+17	Luta
+18	Espionagem
+19	Curta-Metragem
+20	Animação
+\.
+
+
+--
+-- TOC entry 3225 (class 0 OID 27184)
+-- Dependencies: 243
+-- Data for Name: lista; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.lista (idperfil) FROM stdin;
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+\.
+
+
+--
+-- TOC entry 3230 (class 0 OID 27208)
+-- Dependencies: 248
+-- Data for Name: listacontem; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.listacontem (idperfil, idmedia) FROM stdin;
+1	1
+1	5
+1	18
+1	13
+2	5
+2	2
+2	9
+3	7
+3	15
+4	13
+5	14
+5	16
+5	4
+6	3
+6	2
+7	1
+7	8
+7	19
+7	16
+8	12
+8	13
+9	5
+9	6
+10	7
+10	8
+10	9
+11	10
+11	14
+12	14
+13	19
+13	20
+14	20
+14	11
+15	7
+15	9
+16	8
+16	5
+17	4
+17	3
+17	2
+17	1
+18	19
+18	20
+18	14
+19	12
+19	1
+20	2
+20	6
+20	7
+\.
+
+
+--
+-- TOC entry 3227 (class 0 OID 27195)
+-- Dependencies: 245
+-- Data for Name: listadownload; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.listadownload (idperfil) FROM stdin;
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+\.
+
+
+--
+-- TOC entry 3233 (class 0 OID 27227)
+-- Dependencies: 251
+-- Data for Name: listadownloadcontem; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.listadownloadcontem (idperfil, idmedia) FROM stdin;
+1	2
+1	3
+1	5
+1	7
+2	8
+2	12
+2	13
+3	14
+3	17
+4	18
+5	2
+5	3
+5	5
+6	7
+6	8
+7	12
+7	13
+7	14
+7	17
+8	18
+8	2
+9	3
+9	5
+10	7
+10	8
+11	12
+11	13
+12	14
+13	17
+13	18
+14	2
+14	3
+15	7
+15	5
+16	8
+16	12
+17	13
+17	14
+17	17
+17	18
+18	2
+18	3
+18	5
+19	7
+19	8
+20	12
+20	13
+20	14
+\.
+
+
+--
+-- TOC entry 3190 (class 0 OID 26977)
+-- Dependencies: 208
+-- Data for Name: media; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.media (id, titulo, anolancamento, classificacao, restricaoidade, descricao, isdownloadable) FROM stdin;
+1	Spiderman	2022	6.3	+12	Spider-Man: No Way Home is a 2021 American superhero film based on the Marvel Comics character Spider-Man.	f
+2	Matrix	2021	0.1	+16	Filme complicado de entender	t
+3	Flash	2014	8.2	+8	Serie engraçada	t
+4	Barbie Movie	2008	4.4	+4	Filme infantil	f
+5	Game of thrones	2017	9.7	+18	Serie espetacular	t
+6	GhostBusters	1987	8.1	+12	Filme espetacular	f
+7	La Casa de Papel	2016	8.9	+18	Serie engraçada	t
+8	Lego Movie	2008	6.7	+6	Filme infantil	t
+9	The 100	2013	5.7	+18	Serie ok	f
+10	Breaking Bad	2007	7.7	+18	Serie boas	f
+11	Space Jam	1988	7.1	+8	Filme espetacular	f
+12	Matrix 1	2001	9.1	+16	Filme complicado de entender, mas bom	t
+13	Prison Break	2006	4.3	+12	Serie engraçada	t
+14	Mickey Mouse	2008	6.4	\N	Filme infantil	t
+15	Black Mirror	2017	9.7	+18	Serie espetacular	f
+16	Super Mario	1998	3.1	+12	Filme Horrivel	f
+17	F.R.I.E.N.D.S.	2003	7.9	+12	Serie engraçada	t
+18	Harry Potter Pedra Filosofal	2001	6.7	+8	Filme infantil	t
+19	Gossip Girl	2018	4.3	+16	Serie ok	f
+20	You	2000	6.2	\N	Serie boas	f
+\.
+
+
+--
+-- TOC entry 3188 (class 0 OID 26959)
+-- Dependencies: 206
+-- Data for Name: perfil; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.perfil (idconta, id, nome, idioma, password, restricaoidade, tipo) FROM stdin;
+1	1	Teste	Portuguese	passwordsegura	\N	Normal
+1	2	Teste2	Spanish	passwordsegura	+8	Criança
+1	3	Teste3	Russian	passwordsegura	\N	Normal
+1	4	Teste4	English	passwordsegura	+18	Criança
+2	5	João	Portuguese	passwordsegura	\N	Normal
+3	6	Tiago - Filho	French	passwordsegura	+12	Criança
+3	7	Tiago - Pai	English	passwordsegura	\N	Normal
+4	8	Alberto	Portuguese	passwordsegura	\N	Normal
+4	9	Mulher - Alberto	Portuguese	passwordsegura	\N	Normal
+4	10	Filho - Alberto	Portuguese	passwordsegura	+12	Criança
+4	11	Filha - Alberto	Portuguese	passwordsegura	+8	Criança
+4	12	Pai - Alberto	English	passwordsegura	\N	Normal
+5	13	Maria	Portuguese	passwordsegura	\N	Normal
+5	14	Mulher - Maria	Chinese	passwordsegura	\N	Normal
+5	15	Filho - Maria	English	passwordsegura	+8	Criança
+6	16	Inês	Portuguese	passwordsegura	\N	Normal
+7	17	Pedro	Portuguese	passwordsegura	\N	Normal
+8	18	Alexandre	Portuguese	passwordsegura	\N	Normal
+8	19	Namorada - Alexandre	Portuguese	passwordsegura	\N	Normal
+9	20	Mariana	Portuguese	passwordsegura	\N	Normal
+9	21	Cão - Alexandre	Portuguese	passwordsegura	+8	Criança
+9	22	Gato - Alexandre	Portuguese	passwordsegura	+4	Criança
+10	23	Joana	Portuguese	passwordsegura	+16	Criança
+10	24	Primo Alemão - Joana	German	passwordsegura	+14	Criança
+10	25	Primo Ucraniano - Joana	Ukranish	passwordsegura	+10	Criança
+10	26	Joana Alternativa	English	passwordsegura	\N	Normal
+11	27	Ricardo	French	passwordsegura	\N	Normal
+12	28	Diogo	Dutch	passwordsegura	\N	Normal
+12	29	Irmão - Diogo	Dutch	passwordsegura	\N	Normal
+13	30	Margarida	Spanish	passwordsegura	+16	Criança
+13	31	Mãe - Margarida	Spanish	passwordsegura	\N	Normal
+13	32	Avó - Margarida	French	passwordsegura	\N	Normal
+14	33	Ana	Russian	passwordsegura	\N	Normal
+14	34	Ana Katroska	Russian	passwordsegura	\N	Normal
+15	35	Ze	German	passwordsegura	\N	Normal
+15	36	Mulher - Ze	Hindi	passwordsegura	\N	Normal
+15	37	Filho - Ze	English	passwordsegura	+3	Criança
+15	38	Filho - Ze	English	passwordsegura	+6	Criança
+16	39	Marcio	Portuguese	passwordsegura	+8	Criança
+17	40	Silvia	French	passwordsegura	+18	Criança
+18	41	Leandro	Portuguese	passwordsegura	\N	Normal
+18	42	Irmão - Leandro	Portuguese	passwordsegura	\N	Normal
+19	43	Fatima	Portuguese	passwordsegura	\N	Normal
+19	44	Marido - Fatima	Chinese	passwordsegura	\N	Normal
+19	45	Filho - Fatima	English	passwordsegura	+8	Criança
+20	46	Manuel	Portuguese	passwordsegura	\N	Normal
+20	47	Amigo - Manuel	Portuguese	passwordsegura	\N	Normal
+\.
+
+
+--
+-- TOC entry 3199 (class 0 OID 27027)
+-- Dependencies: 217
+-- Data for Name: possuigenero; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.possuigenero (idgenero, idmedia) FROM stdin;
+1	1
+2	2
+3	3
+4	4
+5	5
+6	6
+7	7
+8	8
+9	9
+10	10
+11	11
+12	12
+13	13
+14	14
+15	15
+16	16
+17	17
+18	18
+19	19
+20	20
+\.
+
+
+--
+-- TOC entry 3204 (class 0 OID 27054)
+-- Dependencies: 222
+-- Data for Name: realiza; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.realiza (idrealizador, idmedia) FROM stdin;
+1	1
+2	1
+2	2
+3	3
+3	4
+3	5
+4	11
+5	18
+5	14
+6	6
+7	7
+8	9
+9	9
+10	10
+11	10
+12	12
+13	13
+14	15
+15	15
+16	16
+17	17
+18	19
+19	19
+20	20
+\.
+
+
+--
+-- TOC entry 3201 (class 0 OID 27044)
+-- Dependencies: 219
+-- Data for Name: realizador; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.realizador (id, nome, apelido) FROM stdin;
+1	Jorge	Miguel
+2	Manel	Duarte
+3	Antonio	Palheta
+4	Guilherme	Seixas
+5	Tiago	Marmita
+6	Rodrigo	Rodrigues
+7	Beatriz	Galheta
+8	Ernesto	Garcia
+9	Luisa	Poiares
+10	Frederico	Fraco
+11	Francisca	Joana
+12	Leandro	Fonseca
+13	Pedro	Pinto
+14	Frodo	Jesus
+15	Cesar	Fausto
+16	Camila	Coelho
+17	Horacio	peres
+18	Hugo	Miguel
+19	Tiago	Baia
+20	Rodrigo	Santos
+\.
+
+
+--
+-- TOC entry 3209 (class 0 OID 27081)
+-- Dependencies: 227
+-- Data for Name: representa; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.representa (idator, idmedia) FROM stdin;
+1	1
+1	2
+1	3
+2	4
+2	5
+2	6
+2	7
+3	8
+3	9
+3	10
+4	12
+4	13
+5	14
+5	15
+6	16
+6	17
+6	18
+7	19
+7	1
+7	2
+8	3
+8	4
+9	5
+9	6
+10	7
+10	8
+10	9
+11	10
+11	12
+12	13
+12	14
+13	15
+13	16
+14	17
+14	18
+15	19
+15	1
+15	2
+15	3
+15	4
+15	5
+16	6
+16	7
+17	8
+18	9
+18	10
+19	11
+19	12
+19	13
+19	14
+20	15
+20	16
+20	17
+\.
+
+
+--
+-- TOC entry 3214 (class 0 OID 27114)
+-- Dependencies: 232
+-- Data for Name: serie; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.serie (idmedia, numtemporadas) FROM stdin;
+15	1
+19	2
+5	2
+10	1
+13	1
+7	2
+20	1
+9	2
+3	1
+17	1
+\.
+
+
+--
+-- TOC entry 3219 (class 0 OID 27139)
+-- Dependencies: 237
+-- Data for Name: temporada; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.temporada (id, idmedia, numepisodios, anolancamento, descricao) FROM stdin;
+1	15	3	2017	Descricao Serie
+2	19	2	2018	Descricao Serie
+3	19	1	2019	Descricao Serie
+4	5	2	2017	Descricao Serie
+5	5	2	2020	Descricao Serie
+6	10	1	2007	Descricao Serie
+7	13	3	2006	Descricao Serie
+8	7	2	2016	Descricao Serie
+9	7	2	2021	Descricao Serie
+10	20	2	2000	Descricao Serie
+11	9	2	2013	Descricao Serie
+12	9	1	2015	Descricao Serie
+13	3	2	2014	Descricao Serie
+14	17	2	2003	Descricao Serie
+\.
+
+
+--
+-- TOC entry 3212 (class 0 OID 27100)
+-- Dependencies: 230
+-- Data for Name: trailer; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.trailer (titulo, id, idmedia) FROM stdin;
+Trailer1	1	1
+Trailer2	2	1
+Trailer1	3	2
+Trailer2	4	2
+Trailer1	5	3
+Trailer2	6	3
+Trailer3	7	3
+Trailer1	8	4
+Trailer1	9	5
+Trailer1	10	6
+Trailer2	11	6
+Trailer1	12	7
+Trailer1	13	8
+Trailer2	14	8
+Trailer1	15	9
+Trailer1	16	10
+Trailer2	17	10
+Trailer3	18	10
+Trailer1	19	11
+Trailer1	20	12
+Trailer1	21	13
+Trailer1	22	14
+Trailer2	23	14
+Trailer1	24	15
+Trailer1	25	16
+Trailer1	26	17
+Trailer2	27	17
+Trailer1	28	18
+Trailer1	29	19
+Trailer1	30	20
+\.
+
+
+--
+-- TOC entry 3194 (class 0 OID 26992)
+-- Dependencies: 212
+-- Data for Name: visualiza; Type: TABLE DATA; Schema: public; Owner: admin
+--
+
+COPY public.visualiza (idconta, idperfil, idmedia, data) FROM stdin;
+1	1	8	2019-10-23
+1	1	7	2019-06-14
+1	1	19	2020-04-26
+1	2	18	2021-01-03
+1	2	20	2020-12-04
+1	2	11	2019-09-09
+1	2	10	2019-06-10
+1	4	6	2020-05-25
+1	4	15	2020-03-21
+1	4	2	2020-07-28
+1	4	9	2020-10-05
+2	5	3	2019-01-27
+2	5	14	2021-10-26
+2	5	17	2021-12-26
+3	6	20	2020-10-06
+3	6	18	2019-04-03
+3	6	19	2019-08-13
+3	7	8	2019-09-18
+3	7	7	2020-11-17
+3	7	12	2019-07-19
+3	7	5	2020-12-10
+4	8	14	2021-11-15
+4	8	2	2019-11-05
+4	8	11	2019-11-05
+4	9	1	2020-12-09
+4	9	2	2019-07-15
+4	9	3	2020-12-09
+4	9	12	2019-07-15
+4	10	15	2019-08-03
+4	10	16	2019-09-06
+4	11	8	2019-04-11
+4	11	7	2019-08-19
+4	11	2	2019-04-12
+4	11	9	2019-10-05
+4	11	4	2019-05-07
+4	11	13	2019-08-11
+4	11	5	2019-06-06
+4	12	18	2019-03-02
+4	12	11	2021-11-08
+4	12	9	2019-07-23
+4	12	3	2021-10-18
+5	13	5	2020-09-18
+5	13	18	2019-12-06
+5	13	8	2020-01-02
+5	13	9	2019-10-17
+5	14	17	2021-03-14
+5	14	14	2020-05-12
+5	14	11	2021-10-14
+5	14	10	2020-10-09
+5	15	3	2021-04-07
+5	15	2	2020-02-06
+5	15	1	2020-03-03
+6	16	10	2019-01-16
+6	16	9	2019-08-04
+6	16	1	2019-02-18
+6	16	16	2019-09-14
+7	17	15	2020-09-09
+7	17	12	2020-11-05
+7	17	10	2020-12-12
+8	18	8	2021-10-22
+8	18	7	2021-03-11
+8	18	19	2021-11-12
+8	18	18	2021-08-26
+8	19	16	2019-10-18
+8	19	11	2019-12-14
+8	19	10	2019-08-08
+8	19	6	2019-06-10
+9	20	13	2021-12-09
+9	20	5	2021-02-20
+9	20	12	2021-11-16
+9	20	1	2021-01-22
+9	21	17	2021-12-27
+9	21	14	2019-03-12
+9	21	13	2021-10-28
+9	21	9	2019-04-18
+9	22	20	2019-12-12
+9	22	17	2022-11-07
+9	22	1	2019-08-18
+9	22	12	2022-09-17
+10	23	5	2022-12-02
+10	23	20	2022-07-09
+10	23	13	2022-10-01
+10	23	6	2022-06-19
+10	24	14	2019-10-07
+10	24	8	2019-03-09
+10	24	18	2019-05-20
+10	24	1	2019-08-23
+10	25	5	2019-05-23
+10	25	6	2019-07-15
+10	25	16	2019-11-25
+10	25	17	2019-08-06
+10	26	20	2020-06-06
+10	26	14	2019-03-07
+10	26	13	2020-05-10
+10	26	12	2019-09-19
+11	27	11	2021-01-10
+11	27	1	2019-08-12
+11	27	2	2019-07-12
+12	28	3	2019-10-14
+12	28	1	2021-12-18
+12	28	4	2021-12-19
+12	29	4	2019-10-23
+12	29	5	2019-11-28
+13	30	6	2020-07-18
+13	30	7	2019-10-05
+13	30	17	2020-07-14
+13	30	16	2019-12-05
+13	31	12	2020-11-06
+13	31	20	2019-08-07
+13	31	18	2020-09-08
+13	31	1	2019-12-17
+13	31	5	2019-07-18
+13	32	10	2020-11-25
+13	32	15	2019-08-23
+13	32	20	2020-06-15
+13	32	18	2019-07-05
+13	32	16	2019-10-24
+14	33	14	2019-05-06
+14	33	11	2019-10-05
+14	33	1	2019-07-24
+14	33	3	2019-12-09
+14	34	6	2019-10-30
+14	34	9	2021-10-23
+14	34	8	2019-12-30
+14	34	10	2021-07-28
+15	35	20	2019-02-23
+15	35	17	2022-03-18
+15	35	18	2019-10-24
+15	35	7	2022-11-15
+15	36	8	2019-08-14
+15	36	15	2022-10-11
+15	36	5	2022-12-10
+15	37	10	2022-08-06
+15	37	3	2022-11-02
+15	38	3	2019-10-27
+15	38	6	2019-10-21
+15	38	8	2019-12-24
+16	39	9	2019-10-01
+16	39	8	2020-05-09
+17	40	15	2020-10-16
+17	40	12	2021-04-05
+17	40	3	2020-12-18
+17	40	9	2021-01-05
+18	41	8	2021-05-19
+18	41	19	2019-11-09
+18	41	14	2021-08-10
+18	41	10	2019-12-05
+18	42	19	2019-10-17
+18	42	12	2020-08-04
+18	42	5	2019-10-06
+18	42	10	2020-08-14
+18	42	3	2020-08-08
+19	43	6	2020-11-24
+19	43	8	2019-10-23
+19	43	7	2020-04-14
+19	43	19	2019-08-03
+19	43	18	2020-09-14
+19	43	1	2019-11-13
+19	44	5	2019-10-08
+19	44	6	2019-04-10
+19	44	18	2019-11-18
+19	44	20	2019-05-14
+19	45	19	2019-12-23
+19	45	3	2021-10-25
+20	46	9	2019-10-19
+20	46	14	2019-12-23
+20	46	15	2019-12-23
+20	47	11	2020-10-26
+20	47	10	2019-10-23
+20	47	6	2019-10-23
+\.
+
+
+--
+-- TOC entry 3270 (class 0 OID 0)
+-- Dependencies: 223
+-- Name: ator_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.ator_id_seq', 20, true);
+
+
+--
+-- TOC entry 3271 (class 0 OID 0)
+-- Dependencies: 202
+-- Name: conta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.conta_id_seq', 20, true);
+
+
+--
+-- TOC entry 3272 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: episodio_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.episodio_id_seq', 27, true);
+
+
+--
+-- TOC entry 3273 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: episodio_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.episodio_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3274 (class 0 OID 0)
+-- Dependencies: 240
+-- Name: episodio_idtemporada_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.episodio_idtemporada_seq', 1, false);
+
+
+--
+-- TOC entry 3275 (class 0 OID 0)
+-- Dependencies: 233
+-- Name: filme_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.filme_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3276 (class 0 OID 0)
+-- Dependencies: 213
+-- Name: genero_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.genero_id_seq', 20, true);
+
+
+--
+-- TOC entry 3277 (class 0 OID 0)
+-- Dependencies: 242
+-- Name: lista_idperfil_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.lista_idperfil_seq', 1, false);
+
+
+--
+-- TOC entry 3278 (class 0 OID 0)
+-- Dependencies: 247
+-- Name: listacontem_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.listacontem_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3279 (class 0 OID 0)
+-- Dependencies: 246
+-- Name: listacontem_idperfil_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.listacontem_idperfil_seq', 1, false);
+
+
+--
+-- TOC entry 3280 (class 0 OID 0)
+-- Dependencies: 244
+-- Name: listadownload_idperfil_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.listadownload_idperfil_seq', 1, false);
+
+
+--
+-- TOC entry 3281 (class 0 OID 0)
+-- Dependencies: 250
+-- Name: listadownloadcontem_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.listadownloadcontem_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3282 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: listadownloadcontem_idperfil_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.listadownloadcontem_idperfil_seq', 1, false);
+
+
+--
+-- TOC entry 3283 (class 0 OID 0)
+-- Dependencies: 207
+-- Name: media_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.media_id_seq', 20, true);
+
+
+--
+-- TOC entry 3284 (class 0 OID 0)
+-- Dependencies: 205
+-- Name: perfil_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.perfil_id_seq', 47, true);
+
+
+--
+-- TOC entry 3285 (class 0 OID 0)
+-- Dependencies: 204
+-- Name: perfil_idconta_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.perfil_idconta_seq', 1, false);
+
+
+--
+-- TOC entry 3286 (class 0 OID 0)
+-- Dependencies: 215
+-- Name: possuigenero_idgenero_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.possuigenero_idgenero_seq', 1, false);
+
+
+--
+-- TOC entry 3287 (class 0 OID 0)
+-- Dependencies: 216
+-- Name: possuigenero_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.possuigenero_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3288 (class 0 OID 0)
+-- Dependencies: 221
+-- Name: realiza_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.realiza_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3289 (class 0 OID 0)
+-- Dependencies: 220
+-- Name: realiza_idrealizador_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.realiza_idrealizador_seq', 1, false);
+
+
+--
+-- TOC entry 3290 (class 0 OID 0)
+-- Dependencies: 218
+-- Name: realizador_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.realizador_id_seq', 20, true);
+
+
+--
+-- TOC entry 3291 (class 0 OID 0)
+-- Dependencies: 225
+-- Name: representa_idator_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.representa_idator_seq', 1, false);
+
+
+--
+-- TOC entry 3292 (class 0 OID 0)
+-- Dependencies: 226
+-- Name: representa_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.representa_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3293 (class 0 OID 0)
+-- Dependencies: 231
+-- Name: serie_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.serie_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3294 (class 0 OID 0)
+-- Dependencies: 235
+-- Name: temporada_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.temporada_id_seq', 14, true);
+
+
+--
+-- TOC entry 3295 (class 0 OID 0)
+-- Dependencies: 236
+-- Name: temporada_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.temporada_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3296 (class 0 OID 0)
+-- Dependencies: 228
+-- Name: trailer_id_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.trailer_id_seq', 30, true);
+
+
+--
+-- TOC entry 3297 (class 0 OID 0)
+-- Dependencies: 229
+-- Name: trailer_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.trailer_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3298 (class 0 OID 0)
+-- Dependencies: 209
+-- Name: visualiza_idconta_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.visualiza_idconta_seq', 1, false);
+
+
+--
+-- TOC entry 3299 (class 0 OID 0)
+-- Dependencies: 211
+-- Name: visualiza_idmedia_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.visualiza_idmedia_seq', 1, false);
+
+
+--
+-- TOC entry 3300 (class 0 OID 0)
+-- Dependencies: 210
+-- Name: visualiza_idperfil_seq; Type: SEQUENCE SET; Schema: public; Owner: admin
+--
+
+SELECT pg_catalog.setval('public.visualiza_idperfil_seq', 1, false);
+
+
+--
+-- TOC entry 3026 (class 2606 OID 27076)
+-- Name: ator ator_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.ator
+    ADD CONSTRAINT ator_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3010 (class 2606 OID 26952)
+-- Name: conta conta_email_key; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.conta
+    ADD CONSTRAINT conta_email_key UNIQUE (email);
+
+
+--
+-- TOC entry 3012 (class 2606 OID 26954)
+-- Name: conta conta_numerotelemovel_key; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.conta
+    ADD CONSTRAINT conta_numerotelemovel_key UNIQUE (numerotelemovel);
+
+
+--
+-- TOC entry 3014 (class 2606 OID 26950)
+-- Name: conta conta_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.conta
+    ADD CONSTRAINT conta_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3032 (class 2606 OID 27171)
+-- Name: episodio episodio_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio
+    ADD CONSTRAINT episodio_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3020 (class 2606 OID 27020)
+-- Name: genero genero_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.genero
+    ADD CONSTRAINT genero_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3022 (class 2606 OID 27022)
+-- Name: genero genero_tipo_key; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.genero
+    ADD CONSTRAINT genero_tipo_key UNIQUE (tipo);
+
+
+--
+-- TOC entry 3018 (class 2606 OID 26985)
+-- Name: media media_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.media
+    ADD CONSTRAINT media_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3016 (class 2606 OID 26969)
+-- Name: perfil perfil_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.perfil
+    ADD CONSTRAINT perfil_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3024 (class 2606 OID 27049)
+-- Name: realizador realizador_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realizador
+    ADD CONSTRAINT realizador_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3030 (class 2606 OID 27149)
+-- Name: temporada temporada_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.temporada
+    ADD CONSTRAINT temporada_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3028 (class 2606 OID 27106)
+-- Name: trailer trailer_pkey; Type: CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.trailer
+    ADD CONSTRAINT trailer_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3057 (class 2620 OID 27250)
+-- Name: listadownloadcontem is_downloadable; Type: TRIGGER; Schema: public; Owner: admin
+--
+
+CREATE TRIGGER is_downloadable BEFORE INSERT ON public.listadownloadcontem FOR EACH ROW EXECUTE FUNCTION public.media_is_downloadable();
+
+
+--
+-- TOC entry 3055 (class 2620 OID 27246)
+-- Name: perfil limit_number_perfil; Type: TRIGGER; Schema: public; Owner: admin
+--
+
+CREATE TRIGGER limit_number_perfil BEFORE INSERT ON public.perfil FOR EACH ROW EXECUTE FUNCTION public."Perfil_num_limit"();
+
+
+--
+-- TOC entry 3056 (class 2620 OID 27248)
+-- Name: perfil restricao_idade; Type: TRIGGER; Schema: public; Owner: admin
+--
+
+CREATE TRIGGER restricao_idade BEFORE INSERT ON public.perfil FOR EACH ROW EXECUTE FUNCTION public.restricao_idade_perfil();
+
+
+--
+-- TOC entry 3041 (class 2606 OID 27086)
+-- Name: representa fk__ator; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.representa
+    ADD CONSTRAINT fk__ator FOREIGN KEY (idator) REFERENCES public.ator(id);
+
+
+--
+-- TOC entry 3033 (class 2606 OID 26970)
+-- Name: perfil fk__conta; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.perfil
+    ADD CONSTRAINT fk__conta FOREIGN KEY (idconta) REFERENCES public.conta(id);
+
+
+--
+-- TOC entry 3034 (class 2606 OID 26998)
+-- Name: visualiza fk__conta; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza
+    ADD CONSTRAINT fk__conta FOREIGN KEY (idconta) REFERENCES public.conta(id);
+
+
+--
+-- TOC entry 3037 (class 2606 OID 27032)
+-- Name: possuigenero fk__genero; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.possuigenero
+    ADD CONSTRAINT fk__genero FOREIGN KEY (idgenero) REFERENCES public.genero(id);
+
+
+--
+-- TOC entry 3036 (class 2606 OID 27008)
+-- Name: visualiza fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3038 (class 2606 OID 27037)
+-- Name: possuigenero fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.possuigenero
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3040 (class 2606 OID 27064)
+-- Name: realiza fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realiza
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3042 (class 2606 OID 27091)
+-- Name: representa fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.representa
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3043 (class 2606 OID 27107)
+-- Name: trailer fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.trailer
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3044 (class 2606 OID 27119)
+-- Name: serie fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.serie
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3045 (class 2606 OID 27130)
+-- Name: filme fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.filme
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3046 (class 2606 OID 27150)
+-- Name: temporada fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.temporada
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3047 (class 2606 OID 27172)
+-- Name: episodio fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3052 (class 2606 OID 27218)
+-- Name: listacontem fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listacontem
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3054 (class 2606 OID 27237)
+-- Name: listadownloadcontem fk__media; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownloadcontem
+    ADD CONSTRAINT fk__media FOREIGN KEY (idmedia) REFERENCES public.media(id);
+
+
+--
+-- TOC entry 3035 (class 2606 OID 27003)
+-- Name: visualiza fk__perfil; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.visualiza
+    ADD CONSTRAINT fk__perfil FOREIGN KEY (idperfil) REFERENCES public.perfil(id);
+
+
+--
+-- TOC entry 3049 (class 2606 OID 27188)
+-- Name: lista fk__perfil; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.lista
+    ADD CONSTRAINT fk__perfil FOREIGN KEY (idperfil) REFERENCES public.perfil(id);
+
+
+--
+-- TOC entry 3050 (class 2606 OID 27199)
+-- Name: listadownload fk__perfil; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownload
+    ADD CONSTRAINT fk__perfil FOREIGN KEY (idperfil) REFERENCES public.perfil(id);
+
+
+--
+-- TOC entry 3051 (class 2606 OID 27213)
+-- Name: listacontem fk__perfil; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listacontem
+    ADD CONSTRAINT fk__perfil FOREIGN KEY (idperfil) REFERENCES public.perfil(id);
+
+
+--
+-- TOC entry 3053 (class 2606 OID 27232)
+-- Name: listadownloadcontem fk__perfil; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.listadownloadcontem
+    ADD CONSTRAINT fk__perfil FOREIGN KEY (idperfil) REFERENCES public.perfil(id);
+
+
+--
+-- TOC entry 3039 (class 2606 OID 27059)
+-- Name: realiza fk__realizador; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.realiza
+    ADD CONSTRAINT fk__realizador FOREIGN KEY (idrealizador) REFERENCES public.realizador(id);
+
+
+--
+-- TOC entry 3048 (class 2606 OID 27177)
+-- Name: episodio fk__temporada; Type: FK CONSTRAINT; Schema: public; Owner: admin
+--
+
+ALTER TABLE ONLY public.episodio
+    ADD CONSTRAINT fk__temporada FOREIGN KEY (idtemporada) REFERENCES public.temporada(id);
+
+
+-- Completed on 2022-01-23 20:44:53 WET
+
+--
+-- PostgreSQL database dump complete
+--
+
